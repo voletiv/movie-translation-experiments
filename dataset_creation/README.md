@@ -12,6 +12,7 @@ Please specify the relevant parameters in `movie_translation_data_creation_param
 
 This creates a dataset with the following directory structure inside DATASET_DIR:
 
+```
 videos
     english
         LDC
@@ -78,5 +79,6 @@ landmarks
         Mahesh_Babu
         NTR
         Sharwanand
+```
 
 
