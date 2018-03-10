@@ -52,7 +52,7 @@ def extract_video_clips(language, actor, metadata, youtube_videos_dir=YOUTUBE_VI
         subprocess.call(command)
 
 
-def extract_face_frames_from_video(video_file, detector, predictor, save_gif=True, save_landmarks_as_txt=True, save_landmarks_as_csv=False, verbose=False):
+def extract_face_frames_from_video(video_file, detector, predictor, save_with_blackened_mouths_and_polygons=True, save_gif=True, save_landmarks_as_txt=True, save_landmarks_as_csv=False, verbose=False):
     '''
     Extract face frames using landmarks, and save in DATASET_DIR/frames/language/actor/video_file
     [optional] Save all face frames as gif
@@ -77,8 +77,8 @@ def extract_face_frames_from_video(video_file, detector, predictor, save_gif=Tru
         faces_list = []
     if save_landmarks_as_txt or save_landmarks_as_csv:
         landmarks_list = []
-    for f, frame in tqdm.tqdm(enumerate(video_frames), total=len(video_frames)):
-        video_frame_name = video_file_name + "_frame_{0:03d}.png".format(f)
+    for frame_number, frame in tqdm.tqdm(enumerate(video_frames), total=len(video_frames)):
+        video_frame_name = video_file_name + "_frame_{0:03d}.png".format(frame_number)
         # Get landmarks
         landmarks = get_landmarks(frame, detector, predictor)
         if landmarks:
@@ -88,8 +88,23 @@ def extract_face_frames_from_video(video_file, detector, predictor, save_gif=Tru
                 faces_list.append(face_square_expanded_resized)
             if save_landmarks_as_txt or save_landmarks_as_csv:
                 landmarks_list.append([video_frame_name] + landmarks_in_face_square_expanded_resized)
-            # Write face image
-            cv2.imwrite(os.path.join(video_frames_dir, video_frame_name), cv2.cvtColor(face_square_expanded_resized, cv2.COLOR_RGB2BGR))
+            if save_with_blackened_mouths_and_polygons:
+                # Make new frame with blackened mouth
+                mouth_landmarks = np.array(landmarks_in_face_square_expanded_resized[48:68])
+                mouth_rect = dlib.rectangle(int(np.min(mouth_landmarks[:, 0])), int(np.min(mouth_landmarks[:, 1])), int(np.max(mouth_landmarks[:, 0])), int(np.max(mouth_landmarks[:, 1])))
+                mouth_rect_expanded = expand_rect(mouth_rect, scale_w=1.2, scale_h=1.8, frame_shape=(224, 224))
+                # Blacken mouth in frame
+                frame_with_blackened_mouth = np.array(frame)
+                frame_with_blackened_mouth[mouth_rect_expanded.top():mouth_rect_expanded.bottom(), mouth_rect_expanded.left():mouth_rect_expanded.right()] = 0
+                # Draw mouth polygon in frame
+                frame_with_blackened_mouth_and_mouth_polygon = np.array(frame_with_blackened_mouth)
+                frame_with_blackened_mouth_and_mouth_polygon = cv2.drawContours(frame_with_blackened_mouth_and_mouth_polygon, [mouth_landmarks[:12], mouth_landmarks[12:]], -1, (255, 255, 255))
+                # Write combined frame+frame_with_blacked_mouth_and_polygon image
+                frame_combined = np.hstack((frame, frame_with_blackened_mouth_and_mouth_polygon))
+                cv2.imwrite(os.path.join(video_frames_dir, video_frame_name), cv2.cvtColor(frame_combined, cv2.COLOR_RGB2BGR))
+            else:
+                # Write face image
+                cv2.imwrite(os.path.join(video_frames_dir, video_frame_name), cv2.cvtColor(face_square_expanded_resized, cv2.COLOR_RGB2BGR))
         else:
             if save_landmarks_as_txt or save_landmarks_as_csv:
                 landmarks_list.append([video_frame_name] + [])
@@ -171,7 +186,10 @@ def make_rect_shape_square(rect):
         return [new_x, new_y, new_w, new_h]
 
 
-def expand_rect(rect, scale=1.5, frame_shape=(256, 256)):
+def expand_rect(rect, scale=None, scale_w=1.5, scale_h=1.5, frame_shape=(256, 256)):
+    if scale is not None:
+        scale_w = scale
+        scale_h = scale
     # dlib.rectangle
     if type(rect) == dlib.rectangle:
         x = rect.left()
@@ -184,8 +202,8 @@ def expand_rect(rect, scale=1.5, frame_shape=(256, 256)):
         y = rect[1]
         w = rect[2]
         h = rect[3]
-    new_w = int(w * scale)
-    new_h = int(h * scale)
+    new_w = int(w * scale_w)
+    new_h = int(h * scale_h)
     new_x = max(0, min(frame_shape[1] - w, x - int((new_w - w) / 2)))
     new_y = max(0, min(frame_shape[0] - h, y - int((new_h - h) / 2)))
     # w = min(w, frame_shape[1] - x)
@@ -253,3 +271,64 @@ def correct_video_numbers_in_metadata(d, actor, write=False, txt_file_path=None)
             for l in d:
                 f.write(" ".join(l) + "\n")
     return d
+
+
+def make_blackened_mouths_and_mouth_polygons(video_name):
+    # Read landmarks
+    landmarks_file = os.path.join(DATASET_DIR, 'landmarks', language, actor, video_name + "_landmarks.txt")
+    video_landmarks = read_landmarks_list_from_txt(landmarks_file)
+    video_frames_dir = os.path.join(DATASET_DIR, 'frames', language, actor, video_name)
+    # Folders
+    video_frames_and_black_mouths_combined_dir = os.path.join(DATASET_DIR, 'frames_combined', language, actor, video_name)
+    if not os.path.exists(video_frames_and_black_mouths_combined_dir):
+        os.makedirs(video_frames_and_black_mouths_combined_dir)
+    # For each frame
+    for frame_number, frame_name_and_landmarks in enumerate(video_landmarks):
+        frame_name = frame_name_and_landmarks[0]
+        frame_landmarks = frame_name_and_landmarks[1:]
+        if len(frame_name_and_landmarks) == 69:
+            frame = cv2.cvtColor(cv2.imread(os.path.join(video_frames_dir, frame_name)), cv2.COLOR_BGR2RGB)
+            mouth_landmarks = np.array(frame_landmarks[48:68])
+            mouth_rect = dlib.rectangle(int(np.min(mouth_landmarks[:, 0])), int(np.min(mouth_landmarks[:, 1])), int(np.max(mouth_landmarks[:, 0])), int(np.max(mouth_landmarks[:, 1])))
+            mouth_rect_expanded = expand_rect(mouth_rect, scale_w=1.2, scale_h=1.8, frame_shape=(224, 224))
+            # Blacken mouth in frame
+            frame_with_blackened_mouth = np.array(frame)
+            frame_with_blackened_mouth[mouth_rect_expanded.top():mouth_rect_expanded.bottom(), mouth_rect_expanded.left():mouth_rect_expanded.right()] = 0
+            # Draw mouth polygon in frame
+            frame_with_blackened_mouth_and_mouth_polygon = np.array(frame_with_blackened_mouth)
+            frame_with_blackened_mouth_and_mouth_polygon = cv2.drawContours(frame_with_blackened_mouth_and_mouth_polygon, [mouth_landmarks[:12], mouth_landmarks[12:]], -1, (255, 255, 255))
+            # Write image
+            frame_combined = np.hstack((frame, frame_with_blackened_mouth_and_mouth_polygon))
+            cv2.imwrite(os.path.join(video_frames_and_black_mouths_combined_dir, video_name + "_frame_combined_{0:03d}.png".format(frame_number)), cv2.cvtColor(frame_combined, cv2.COLOR_RGB2BGR))
+
+
+def read_log_and_plot_graphs(log_txt_path):
+    log_lines = []
+    with open(log_txt_path, 'r') as f:
+        for line in f:
+            log_lines.append(line)
+    D_log_losses = []
+    G_tot_losses = []
+    G_l1_losses = []
+    G_log_losses = []
+    for line in log_lines:
+        if 'D logloss' in line:
+            line_split = line.split()
+            D_log_losses.append(float(line_split[8]))
+            G_tot_losses.append(float(line_split[12]))
+            G_l1_losses.append(float(line_split[16]))
+            G_log_losses.append(float(line_split[20][:6]))
+
+    plt.figure()
+    plt.subplot(121)
+    plt.plot(np.arange(len(D_log_losses)), D_log_losses)
+    plt.xlabel("Epochs")
+    plt.title("Discriminator loss")
+    plt.subplot(122)
+    plt.plot(np.arange(len(G_tot_losses)), G_tot_losses, linewidth=2, label='G_total_loss')
+    plt.plot(np.arange(len(G_l1_losses)), G_l1_losses, label='G_L1_loss')
+    plt.plot(np.arange(len(G_log_losses)), G_log_losses, label='G_log_loss')
+    plt.legend()
+    plt.xlabel("Epochs")
+    plt.title("Generator loss")
+    plt.show()
