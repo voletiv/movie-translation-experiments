@@ -54,7 +54,11 @@ def exchange_dialogues(generator_model,
 
         # Read video2 frame
         video2_frame_name = video2_actor + '_%04d_frame_%03d.png' % (video2_number, video2_frame_numbers[i])
-        video2_frame = cv2.cvtColor(cv2.imread(os.path.join(video2_frames_dir, video2_frame_name)), cv2.COLOR_BGR2RGB)
+        try:
+            video2_frame = cv2.cvtColor(cv2.imread(os.path.join(video2_frames_dir, video2_frame_name)), cv2.COLOR_BGR2RGB)
+        except:
+            print("[ERROR]: Could not find", os.path.join(video2_frames_dir, video2_frame_name), "\nRetaining previous frame and landmarks")
+            video2_landmarks[video2_frame_numbers[i]] = video2_landmarks[video2_frame_numbers[i-1]]
 
         # Get the landmarks
         video1_frame_lip_landmarks = np.array(video1_landmarks[video1_frame_numbers[i]][1:][48:68])
