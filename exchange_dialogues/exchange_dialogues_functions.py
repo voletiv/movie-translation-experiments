@@ -8,30 +8,45 @@ def load_generator(model_path):
 
 def exchange_dialogues(generator_model,
                        video1_language="telugu", video1_actor="Mahesh_Babu", video1_number=47,
-                       video2_language="telugu", video2_actor="Mahesh_Babu", video2_number=89):
+                       video2_language="telugu", video2_actor="Mahesh_Babu", video2_number=89,
+                       verbose=False):
     # Video 1
+    if verbose:
+        print("Getting video1 dir and landmarks")
     video1_frames_dir, video1_landmarks = get_video_frames_dir_and_landmarks(video1_language, video1_actor, video1_number)
     video1_length = len(video1_landmarks)
+
     # Video 2
+    if verbose:
+        print("Getting video2 dir and landmarks")
     video2_frames_dir, video2_landmarks = get_video_frames_dir_and_landmarks(video2_language, video2_actor, video2_number)
     video2_length = len(video2_landmarks)
+
     # Choose the smaller one as the target length, and choose those many central frames
+    if verbose:
+        print("Choosing smaller video")
     if video1_length < video2_length:
+        if verbose:
+            print("    video1 chosen")
         video_length = video1_length
         video1_frame_numbers = np.arange(video1_length)
         video2_landmarks = video2_landmarks[(video2_length//2 - video1_length//2):(video2_length//2 - video1_length//2 + video1_length)]
         video2_frame_numbers = np.arange((video2_length//2 - video1_length//2), (video2_length//2 - video1_length//2 + video1_length))
     else:
+        if verbose:
+            print("    video2 chosen")
         video_length = video2_length
         video1_landmarks = video1_landmarks[(video1_length//2 - video2_length//2):(video1_length//2 - video2_length//2 + video2_length)]
         video1_frame_numbers = np.arange((video1_length//2 - video2_length//2), (video1_length//2 - video2_length//2 + video2_length))
         video2_frame_numbers = np.arange(video2_length)
+
     # EXCHANGE DIALOGUES
     new_video1_frames_with_black_mouth_and_lip_polygons = []
     new_video2_frames_with_black_mouth_and_lip_polygons = []
+
     # For each frame
     # read frame, blacken mouth, make new landmarks' polygon
-    for i in range(len(video_length)):
+    for i in tqdm.tqdm(range(len(video_length))):
 
         # Read video1 frame
         video1_frame_name = video1_actor + '_%04d_frame_%03d.png' % (video1_number, video1_frame_numbers[i])
@@ -53,10 +68,19 @@ def exchange_dialogues(generator_model,
         new_video2_frames_with_black_mouth_and_lip_polygons.append(make_black_mouth_and_lips_polygons(video2_frame, new_video2_frame_lip_landmarks))
 
     # Generate new frames
+    if verbose:
+        print("Generating new frames using Pix2Pix")
     new_video1_frames_generated = generator_model.predict(new_video1_frames_with_black_mouth_and_lip_polygons)
     new_video2_frames_generated = generator_model.predict(new_video2_frames_with_black_mouth_and_lip_polygons)
 
+    # Save npz
+    if verbose:
+        print("Saving npz")
+    np.savez("exchanged_dialogues", "new_video1"=new_video1_frames_generated, "new_video2"=new_video2_frames_generated)
+
     # Save
+    if verbose:
+        print("Saving gifs")
     imageio.mimsave(os.path.join("video1.gif"), new_video1_frames_generated)
     imageio.mimsave(os.path.join("video2.gif"), new_video2_frames_generated)
 
