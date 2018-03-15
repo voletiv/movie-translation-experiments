@@ -86,6 +86,16 @@ def exchange_dialogues(generator_model,
         video1_frames_with_black_mouth_and_video2_lip_polygons.append(video1_frame_with_black_mouth_and_video2_lip_polygons_resized)
         video2_frames_with_black_mouth_and_video1_lip_polygons.append(video2_frame_with_black_mouth_and_video1_lip_polygons_resized)
 
+    # Save black mouth polygons as mp4 with audio
+    new_video1_file_name = video1_language + '_' + video1_actor + '_%04d' % video1_number + '_with_audio_of_' + video2_language + '_' + video2_actor + '_%04d' % video2_number + '_black_mouth_polygons.mp4'
+    save_new_video_frames_with_old_audio_as_mp4(np.array([frame for frame in video1_frames_with_black_mouth_and_video2_lip_polygons]).astype('uint8'),
+                                                audio_language=video2_language, audio_actor=video2_actor, audio_number=video2_number,
+                                                save_dir=save_dir, file_name=new_video1_file_name, verbose=verbose)
+    new_video2_file_name = video2_language + '_' + video2_actor + '_%04d' % video2_number + '_with_audio_of_' + video1_language + '_' + video1_actor + '_%04d' % video1_number + '_black_mouth_polygons.mp4'
+    save_new_video_frames_with_old_audio_as_mp4(np.array([frame for frame in video2_frames_with_black_mouth_and_video1_lip_polygons]).astype('uint8'),
+                                                audio_language=video1_language, audio_actor=video1_actor, audio_number=video1_number,
+                                                save_dir=save_dir, file_name=new_video2_file_name, verbose=verbose)
+
     # Generate new frames
     if verbose:
         print("Generating new frames using Pix2Pix")
