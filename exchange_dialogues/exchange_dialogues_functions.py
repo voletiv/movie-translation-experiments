@@ -46,7 +46,7 @@ def exchange_dialogues(generator_model,
 
     # For each frame
     # read frame, blacken mouth, make new landmarks' polygon
-    for i in tqdm.tqdm(range(len(video_length))):
+    for i in tqdm.tqdm(range(video_length)):
 
         # Read video1 frame
         video1_frame_name = video1_actor + '_%04d_frame_%03d.png' % (video1_number, video1_frame_numbers[i])
@@ -110,8 +110,8 @@ def read_landmarks_list_from_txt(path):
 def exchange_landmarks(video1_frame_lip_landmarks, video2_frame_lip_landmarks):
 
     # Unrotate both frames' lip landmarks
-    video1_frame_lip_landmarks_rotated, angle_video1_landmarks_rotated_by = unrotate_lip_landmarks(video1_frame_lip_landmarks)
-    video2_frame_lip_landmarks_rotated, angle_video2_landmarks_rotated_by = unrotate_lip_landmarks(video2_frame_lip_landmarks)
+    video1_frame_lip_landmarks_rotated, video1_landmarks_origin, angle_video1_landmarks_rotated_by = unrotate_lip_landmarks(video1_frame_lip_landmarks)
+    video2_frame_lip_landmarks_rotated, video2_landmarks_origin, angle_video2_landmarks_rotated_by = unrotate_lip_landmarks(video2_frame_lip_landmarks)
 
     # Normalize both frames' rotated lip landmarks
     video1_frame_lip_landmarks_rotated_normalized, video1_ur, video1_uc, video1_sr, video1_sc = normalize_lip_landmarks(video1_frame_lip_landmarks_rotated)
@@ -120,10 +120,10 @@ def exchange_landmarks(video1_frame_lip_landmarks, video2_frame_lip_landmarks):
     # Make new lip landmarks by unnormalizing and then rotating
     new_video1_frame_lip_landmarks = np.round(rotate_points(unnormalize_lip_landmarks(video2_frame_lip_landmarks_rotated_normalized,
                                                                                       video1_ur, video1_uc, video1_sr, video1_sc),
-                                                            angle_video1_landmarks_rotated_by)).astype('int')
+                                                            video1_landmarks_origin, angle_video1_landmarks_rotated_by)).astype('int')
     new_video2_frame_lip_landmarks = np.round(rotate_points(unnormalize_lip_landmarks(video1_frame_lip_landmarks_rotated_normalized,
                                                                                       video2_ur, video2_uc, video2_sr, video2_sc),
-                                                            angle_video2_landmarks_rotated_by)).astype('int')
+                                                            video2_landmarks_origin, angle_video2_landmarks_rotated_by)).astype('int')
 
     return new_video1_frame_lip_landmarks, new_video2_frame_lip_landmarks
 
@@ -132,7 +132,7 @@ def unrotate_lip_landmarks(lip_landmarks):
     # lip_landmarks = list(lip_landmarks)
     angle_rotated_by = math.atan((lip_landmarks[6][1] - lip_landmarks[0][1])/(lip_landmarks[6][0] - lip_landmarks[0][0]))
     rotated_lip_landmarks = rotate_points(lip_landmarks, lip_landmarks[0], -angle_rotated_by)
-    return rotated_lip_landmarks, angle_rotated_by
+    return rotated_lip_landmarks, lip_landmarks[0], angle_rotated_by
 
 
 def rotate_points(points, origin, angle):
