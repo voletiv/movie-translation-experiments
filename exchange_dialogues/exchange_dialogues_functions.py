@@ -9,7 +9,11 @@ def load_generator(model_path):
 def exchange_dialogues(generator_model,
                        video1_language="telugu", video1_actor="Mahesh_Babu", video1_number=47,
                        video2_language="telugu", video2_actor="Mahesh_Babu", video2_number=89,
-                       verbose=False):
+                       save_dir='.', verbose=False):
+
+    # Generator model input shape
+    _, generator_model_input_rows, generator_model_input_cols, _ = generator_model.layers[0].input_shape
+
     # Video 1
     if verbose:
         print("Getting video1 dir and landmarks")
@@ -41,8 +45,8 @@ def exchange_dialogues(generator_model,
         video2_frame_numbers = np.arange(video2_length)
 
     # EXCHANGE DIALOGUES
-    new_video1_frames_with_black_mouth_and_lip_polygons = []
-    new_video2_frames_with_black_mouth_and_lip_polygons = []
+    video1_frames_with_black_mouth_and_video2_lip_polygons = []
+    video2_frames_with_black_mouth_and_video1_lip_polygons = []
 
     # For each frame
     # read frame, blacken mouth, make new landmarks' polygon
@@ -51,7 +55,7 @@ def exchange_dialogues(generator_model,
         # Read video1 frame
         video1_frame_name = video1_actor + '_%04d_frame_%03d.png' % (video1_number, video1_frame_numbers[i])
         try:
-            video1_frame = cv2.resize(cv2.cvtColor(cv2.imread(os.path.join(video1_frames_dir, video1_frame_name)), cv2.COLOR_BGR2RGB), (256, 256), interpolation=cv2.INTER_AREA)
+            video1_frame = cv2.cvtColor(cv2.imread(os.path.join(video1_frames_dir, video1_frame_name)), cv2.COLOR_BGR2RGB)
         except:
             print("[ERROR]: Could not find", os.path.join(video1_frames_dir, video1_frame_name), "--- [SOLUTION] Retaining previous frame and landmarks")
             video1_landmarks[video1_frame_numbers[i]] = video1_landmarks[video1_frame_numbers[i-1]]
@@ -59,7 +63,7 @@ def exchange_dialogues(generator_model,
         # Read video2 frame
         video2_frame_name = video2_actor + '_%04d_frame_%03d.png' % (video2_number, video2_frame_numbers[i])
         try:
-            video2_frame = cv2.resize(cv2.cvtColor(cv2.imread(os.path.join(video2_frames_dir, video2_frame_name)), cv2.COLOR_BGR2RGB), (256, 256), interpolation=cv2.INTER_AREA)
+            video2_frame = cv2.cvtColor(cv2.imread(os.path.join(video2_frames_dir, video2_frame_name)), cv2.COLOR_BGR2RGB)
         except:
             print("[ERROR]: Could not find", os.path.join(video2_frames_dir, video2_frame_name), "--- [SOLUTION] Retaining previous frame and landmarks")
             video2_landmarks[video2_frame_numbers[i]] = video2_landmarks[video2_frame_numbers[i-1]]
@@ -72,25 +76,37 @@ def exchange_dialogues(generator_model,
         new_video1_frame_lip_landmarks, new_video2_frame_lip_landmarks = exchange_landmarks(video1_frame_lip_landmarks, video2_frame_lip_landmarks)
 
         # Make frames with black mouth and polygon of landmarks
-        new_video1_frames_with_black_mouth_and_lip_polygons.append(make_black_mouth_and_lips_polygons(video1_frame, new_video1_frame_lip_landmarks))
-        new_video2_frames_with_black_mouth_and_lip_polygons.append(make_black_mouth_and_lips_polygons(video2_frame, new_video2_frame_lip_landmarks))
+        video1_frame_with_black_mouth_and_video2_lip_polygons = make_black_mouth_and_lips_polygons(video1_frame, new_video1_frame_lip_landmarks)
+        video2_frame_with_black_mouth_and_video1_lip_polygons = make_black_mouth_and_lips_polygons(video2_frame, new_video2_frame_lip_landmarks)
+
+        # Resize frame to input_size of generator_model
+        video1_frame_with_black_mouth_and_video2_lip_polygons_resized = cv2.resize(video1_frame_with_black_mouth_and_video2_lip_polygons, (generator_model_input_rows, generator_model_input_cols), interpolation=cv2.INTER_AREA)
+        video2_frame_with_black_mouth_and_video1_lip_polygons_resized = cv2.resize(video2_frame_with_black_mouth_and_video1_lip_polygons, (generator_model_input_rows, generator_model_input_cols), interpolation=cv2.INTER_AREA)
+
+        video1_frames_with_black_mouth_and_video2_lip_polygons.append(video1_frame_with_black_mouth_and_video2_lip_polygons_resized)
+        video2_frames_with_black_mouth_and_video1_lip_polygons.append(video2_frame_with_black_mouth_and_video1_lip_polygons_resized)
 
     # Generate new frames
     if verbose:
         print("Generating new frames using Pix2Pix")
-    new_video1_frames_generated = generator_model.predict(np.array(new_video1_frames_with_black_mouth_and_lip_polygons))
-    new_video2_frames_generated = generator_model.predict(np.array(new_video2_frames_with_black_mouth_and_lip_polygons))
+    new_video1_frames_generated = generator_model.predict(normalize_input_to_generator(video1_frames_with_black_mouth_and_video2_lip_polygons))
+    new_video2_frames_generated = generator_model.predict(normalize_input_to_generator(video2_frames_with_black_mouth_and_video1_lip_polygons))
 
-    # Save npz
-    if verbose:
-        print("Saving npz")
-    np.savez("exchanged_dialogues", new_video1=new_video1_frames_generated, new_video2=new_video2_frames_generated)
+    # Rescale generated frames from -1->1 to 0->255
+    new_video1_frames_generated = unnormalize_output_from_generator(new_video1_frames_generated)
+    new_video2_frames_generated = unnormalize_output_from_generator(new_video2_frames_generated)
 
-    # Save
-    if verbose:
-        print("Saving gifs")
-    imageio.mimsave(os.path.join("video1.gif"), new_video1_frames_generated)
-    imageio.mimsave(os.path.join("video2.gif"), new_video2_frames_generated)
+    # Save as new mp4 with audio
+    new_video1_file_name = video1_language + '_' + video1_actor + '_%04d' % video1_number + '_with_audio_of_' + video2_language + '_' + video2_actor + '_%04d' % video2_number + '.mp4'
+    save_new_video_frames_with_old_audio_as_mp4(new_video1_frames_generated,
+                                                audio_language=video2_language, audio_actor=video2_actor, audio_number=video2_number,
+                                                save_dir=save_dir, file_name=new_video1_file_name, verbose=verbose)
+    new_video2_file_name = video2_language + '_' + video2_actor + '_%04d' % video2_number + '_with_audio_of_' + video1_language + '_' + video1_actor + '_%04d' % video1_number + '.mp4'
+    save_new_video_frames_with_old_audio_as_mp4(new_video2_frames_generated,
+                                                audio_language=video1_language, audio_actor=video1_actor, audio_number=video1_number,
+                                                save_dir=save_dir, file_name=new_video2_file_name, verbose=verbose)
+
+    return new_video1_frames_generated, new_video2_frames_generated
 
 
 #################################################
@@ -118,18 +134,18 @@ def read_landmarks_list_from_txt(path):
 def exchange_landmarks(video1_frame_lip_landmarks, video2_frame_lip_landmarks):
 
     # Unrotate both frames' lip landmarks
-    video1_frame_lip_landmarks_rotated, video1_landmarks_origin, angle_video1_landmarks_rotated_by = unrotate_lip_landmarks(video1_frame_lip_landmarks)
-    video2_frame_lip_landmarks_rotated, video2_landmarks_origin, angle_video2_landmarks_rotated_by = unrotate_lip_landmarks(video2_frame_lip_landmarks)
+    video1_frame_lip_landmarks_unrotated, video1_landmarks_origin, angle_video1_landmarks_rotated_by = unrotate_lip_landmarks(video1_frame_lip_landmarks)
+    video2_frame_lip_landmarks_unrotated, video2_landmarks_origin, angle_video2_landmarks_rotated_by = unrotate_lip_landmarks(video2_frame_lip_landmarks)
 
     # Normalize both frames' rotated lip landmarks
-    video1_frame_lip_landmarks_rotated_normalized, video1_ur, video1_uc, video1_sr, video1_sc = normalize_lip_landmarks(video1_frame_lip_landmarks_rotated)
-    video2_frame_lip_landmarks_rotated_normalized, video2_ur, video2_uc, video2_sr, video2_sc = normalize_lip_landmarks(video2_frame_lip_landmarks_rotated)
+    video1_frame_lip_landmarks_unrotated_normalized, video1_ur, video1_uc, video1_sr, video1_sc = normalize_lip_landmarks(video1_frame_lip_landmarks_unrotated)
+    video2_frame_lip_landmarks_unrotated_normalized, video2_ur, video2_uc, video2_sr, video2_sc = normalize_lip_landmarks(video2_frame_lip_landmarks_unrotated)
 
     # Make new lip landmarks by unnormalizing and then rotating
-    new_video1_frame_lip_landmarks = np.round(rotate_points(unnormalize_lip_landmarks(video2_frame_lip_landmarks_rotated_normalized,
+    new_video1_frame_lip_landmarks = np.round(rotate_points(unnormalize_lip_landmarks(video2_frame_lip_landmarks_unrotated_normalized,
                                                                                       video1_ur, video1_uc, video1_sr, video1_sc),
                                                             video1_landmarks_origin, angle_video1_landmarks_rotated_by)).astype('int')
-    new_video2_frame_lip_landmarks = np.round(rotate_points(unnormalize_lip_landmarks(video1_frame_lip_landmarks_rotated_normalized,
+    new_video2_frame_lip_landmarks = np.round(rotate_points(unnormalize_lip_landmarks(video1_frame_lip_landmarks_unrotated_normalized,
                                                                                       video2_ur, video2_uc, video2_sr, video2_sc),
                                                             video2_landmarks_origin, angle_video2_landmarks_rotated_by)).astype('int')
 
@@ -161,6 +177,35 @@ def normalize_lip_landmarks(lip_landmarks):
 
 def unnormalize_lip_landmarks(lip_landmarks, ur, uc, sr, sc):
     return lip_landmarks * [sr, sc] + [ur, uc]
+
+
+def plot_landmarks(frame, landmarks):
+    frame = np.array(frame)
+    for (x, y) in landmarks:
+        cv2.circle(frame, (int(x), int(y)), 1, (0, 0, 255), -1)
+    plt.imshow(frame)
+    plt.show()
+
+
+def plot_lip_landmarks(lip_landmarks, frame=None, video=False):
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    if video:
+        plt.ion()
+        fig.show()
+        fig.canvas.draw()
+    if frame is None:
+        frame = np.zeros((224, 224))
+    else:
+        frame = np.array(frame)
+    for l, lip_landmark in enumerate(lip_landmarks):
+        frame[int(lip_landmark[1])-2:int(lip_landmark[1])+2, int(lip_landmark[0])-2:int(lip_landmark[0])+2] = 1
+        ax.imshow(frame)
+        if video:
+            ax.set_title(str(l))
+            fig.canvas.draw()
+    if not video:
+        plt.show()
 
 
 def make_black_mouth_and_lips_polygons(frame, lip_landmarks):
@@ -211,6 +256,65 @@ def expand_rect(rect, scale=None, scale_w=1.5, scale_h=1.5, frame_shape=(256, 25
         return dlib.rectangle(new_x, new_y, new_x + new_w, new_y + new_h)
     else:
         return [new_x, new_y, new_w, new_h]
+
+
+def normalize_input_to_generator(list_of_frames):
+    return np.array(list_of_frames)/127. - 1
+
+
+def unnormalize_output_from_generator(np_array_output_of_generator):
+    return ((np_array_output_of_generator + 1)/2.*255).astype('uint8')
+
+
+def save_new_video_frames_with_old_audio_as_mp4(frames,
+                                                audio_language="telugu", audio_actor="Mahesh_Babu", audio_number=89,
+                                                save_dir='.', file_name='new_video.mp4', verbose=False):
+
+    # Save mp4 of frames
+    if verbose:
+        print("Writing frames as mp4")
+    imageio.mimwrite('/tmp/video.mp4', frames , fps=24)
+
+    # Extract audio from original files
+    # orig_video, start_time, duration = get_metadata(language=audio_language, actor=audio_actor, number=audio_number)
+    # command = ['ffmpeg', '-loglevel', 'warning', '-ss', start_time, '-i', orig_video, '-t', duration, '-y',
+    #                '-vn', '-acodec', 'aac', '-strict', '-2', '/tmp/video_audio.aac']
+    command = ['ffmpeg', '-loglevel', 'error',
+               '-i', os.path.join(DATASET_DIR, 'videos', audio_language, audio_actor, audio_actor + '_%04d.mp4' % audio_number),
+               '-vn', '-y', '-acodec', 'aac', '-strict', '-2', '/tmp/video_audio.aac']
+    if verbose:
+        print("Extracting audio from original files:", command)
+    commandReturn = subprocess.call(command)    # subprocess.call returns 0 on successful run
+
+    # Combine frames with audio
+    command = ['ffmpeg', '-loglevel', 'error',
+               '-i', '/tmp/video.mp4', '-i', '/tmp/video_audio.aac',
+               '-vcodec', 'libx264', '-preset', 'ultrafast', '-profile:v', 'main', '-acodec', 'aac', '-strict', '-2',
+               os.path.join(save_dir, file_name)]
+    if verbose:
+        print("Combining frames with audio:", command)
+    commandReturn = subprocess.call(command)    # subprocess.call returns 0 on successful run
+
+    # # Save npz
+    # if verbose:
+    #     print("Saving npz")
+    # np.savez("exchanged_dialogues", new_video1=new_video1_frames_generated, new_video2=new_video2_frames_generated)
+
+    # # Save GIF
+    # if verbose:
+    #     print("Saving gifs")
+    # imageio.mimsave(os.path.join("video1.gif"), new_video1_frames_generated)
+    # imageio.mimsave(os.path.join("video2.gif"), new_video2_frames_generated)
+
+
+def get_metadata(language="telugu", actor="Mahesh_Babu", number=47):
+    metadata_file = os.path.join(DATASET_DIR, "metadata", language, actor + '.txt')
+    with open(metadata_file, 'r') as f:
+        for l, line in enumerate(f):
+            if l == number:
+                metadata = line.strip().split()
+                break
+    return os.path.join(DATASET_DIR, "in_progress", metadata[1] + '.mp4'), metadata[2], metadata[3]
 
 
 def unrotate_lip_landmarks_point_by_point(lip_landmarks):

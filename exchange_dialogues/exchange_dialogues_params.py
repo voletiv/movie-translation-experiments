@@ -4,6 +4,7 @@ import imageio
 import math
 import numpy as np
 import os
+import subprocess
 import tqdm
 
 if 'voletiv' in os.getcwd():
