@@ -55,9 +55,9 @@ def exchange_dialogues(generator_model,
         # Read video2 frame
         video2_frame_name = video2_actor + '_%04d_frame_%03d.png' % (video2_number, video2_frame_numbers[i])
         try:
-            video2_frame = cv2.cvtColor(cv2.imread(os.path.join(video2_frames_dir, video2_frame_name)), cv2.COLOR_BGR2RGB)
+            video2_frame = cv2.resize(cv2.cvtColor(cv2.imread(os.path.join(video2_frames_dir, video2_frame_name)), cv2.COLOR_BGR2RGB), (256, 256), interpolation=cv2.INTER_AREA)
         except:
-            print("[ERROR]: Could not find", os.path.join(video2_frames_dir, video2_frame_name), "\nRetaining previous frame and landmarks")
+            print("[ERROR]: Could not find", os.path.join(video2_frames_dir, video2_frame_name), "--- [SOLUTION] Retaining previous frame and landmarks")
             video2_landmarks[video2_frame_numbers[i]] = video2_landmarks[video2_frame_numbers[i-1]]
 
         # Get the landmarks
@@ -74,8 +74,8 @@ def exchange_dialogues(generator_model,
     # Generate new frames
     if verbose:
         print("Generating new frames using Pix2Pix")
-    new_video1_frames_generated = generator_model.predict(new_video1_frames_with_black_mouth_and_lip_polygons)
-    new_video2_frames_generated = generator_model.predict(new_video2_frames_with_black_mouth_and_lip_polygons)
+    new_video1_frames_generated = generator_model.predict(np.array(new_video1_frames_with_black_mouth_and_lip_polygons))
+    new_video2_frames_generated = generator_model.predict(np.array(new_video2_frames_with_black_mouth_and_lip_polygons))
 
     # Save npz
     if verbose:
