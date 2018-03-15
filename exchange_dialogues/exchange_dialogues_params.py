@@ -5,3 +5,5 @@ import math
 import numpy as np
 import os
 import tqdm
+
+DATASET_DIR = '/home/voletiv/Datasets/MOVIE_TRANSLATION/'
