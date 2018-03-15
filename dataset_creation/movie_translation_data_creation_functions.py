@@ -43,9 +43,9 @@ def extract_video_clips(language, actor, metadata, youtube_videos_dir=YOUTUBE_VI
     # Extract clips
     for output_video_file_name, youtube_URL, start_time, duration in tqdm.tqdm(zip(output_video_file_names, youtube_URLs, start_times, durations), total=len(durations)):
         output_video = os.path.join(video_clips_dir, output_video_file_name)
-        input_video = os.path.join(youtube_videos_dir, youtube_URL + '.mp4')
+        video1 = os.path.join(youtube_videos_dir, youtube_URL + '.mp4')
         # ffmpeg -ss 00:08:31 -i LS6XiINMc2s.mp4 -t 00:00:01.5 -y -vcodec libx264 -preset ultrafast -profile:v main -acodec aac -strict -2 newStream1.mp4
-        command = ['ffmpeg', '-loglevel', 'warning', '-ss', start_time, '-i', input_video, '-t', duration, '-y',
+        command = ['ffmpeg', '-loglevel', 'warning', '-ss', start_time, '-i', video1, '-t', duration, '-y',
                    '-vcodec', 'libx264', '-preset', 'ultrafast', '-profile:v', 'main', '-acodec', 'aac', '-strict', '-2', output_video]
         if verbose:
             print(" ".join(command))
@@ -318,7 +318,6 @@ def read_log_and_plot_graphs(log_txt_path):
             G_tot_losses.append(float(line_split[12]))
             G_l1_losses.append(float(line_split[16]))
             G_log_losses.append(float(line_split[20][:6]))
-
     plt.figure()
     plt.subplot(121)
     plt.plot(np.arange(len(D_log_losses)), D_log_losses)
@@ -332,3 +331,21 @@ def read_log_and_plot_graphs(log_txt_path):
     plt.xlabel("Epochs")
     plt.title("Generator loss")
     plt.show()
+
+
+def plot_lip_landmarks(lip_landmarks, video=False):
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    if video:
+        plt.ion()
+        fig.show()
+        fig.canvas.draw()
+    a = np.zeros((224, 224))
+    for l, lip_landmark in enumerate(lip_landmarks):
+        a[lip_landmark[1]-3:lip_landmark[1]+3, lip_landmark[0]-3:lip_landmark[0]+3] = 1
+        ax.imshow(a)
+        if video:
+            ax.set_title(str(l))
+            fig.canvas.draw()
+    if not video:
+        plt.show()
