@@ -97,6 +97,16 @@ def get_video_frames_dir_and_landmarks(language, actor, number):
     return frames_dir, landmarks
 
 
+def read_landmarks_list_from_txt(path):
+    landmarks_list = []
+    translate_table = dict((ord(char), None) for char in '[],')
+    with open(path, "r") as f:
+        for line in f:
+            row = line.strip().split(" [")
+            landmarks_list.append([row[0]] + [[int(e.split(" ")[0].translate(translate_table)), int(e.split(" ")[1].translate(translate_table))] for e in row[1:]])
+    return landmarks_list
+
+
 def exchange_landmarks(video1_frame_lip_landmarks, video2_frame_lip_landmarks):
 
     # Unrotate both frames' lip landmarks

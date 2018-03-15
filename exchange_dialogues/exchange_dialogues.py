@@ -8,4 +8,8 @@ generator_model_name = '/shared/fusor/home/voleti.vikram/DeepLearningImplementat
 # Load generator
 generator_model = load_generator(generator_model_name)
 
-
+# Exchange
+exchange_dialogues(generator_model,
+                   video1_language=video1_language, video1_actor=video1_actor, video1_number=video1_number,
+                   video2_language=video2_language, video2_actor=video2_actor, video2_number=video2_number,
+                   verbose=True)
