@@ -76,7 +76,7 @@ def exchange_dialogues(generator_model,
     # Save npz
     if verbose:
         print("Saving npz")
-    np.savez("exchanged_dialogues", "new_video1"=new_video1_frames_generated, "new_video2"=new_video2_frames_generated)
+    np.savez("exchanged_dialogues", new_video1=new_video1_frames_generated, new_video2=new_video2_frames_generated)
 
     # Save
     if verbose:
