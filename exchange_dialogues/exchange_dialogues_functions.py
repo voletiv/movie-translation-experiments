@@ -50,7 +50,11 @@ def exchange_dialogues(generator_model,
 
         # Read video1 frame
         video1_frame_name = video1_actor + '_%04d_frame_%03d.png' % (video1_number, video1_frame_numbers[i])
-        video1_frame = cv2.cvtColor(cv2.imread(os.path.join(video1_frames_dir, video1_frame_name)), cv2.COLOR_BGR2RGB)
+        try:
+            video1_frame = cv2.resize(cv2.cvtColor(cv2.imread(os.path.join(video1_frames_dir, video1_frame_name)), cv2.COLOR_BGR2RGB), (256, 256), interpolation=cv2.INTER_AREA)
+        except:
+            print("[ERROR]: Could not find", os.path.join(video1_frames_dir, video1_frame_name), "--- [SOLUTION] Retaining previous frame and landmarks")
+            video1_landmarks[video1_frame_numbers[i]] = video1_landmarks[video1_frame_numbers[i-1]]
 
         # Read video2 frame
         video2_frame_name = video2_actor + '_%04d_frame_%03d.png' % (video2_number, video2_frame_numbers[i])
