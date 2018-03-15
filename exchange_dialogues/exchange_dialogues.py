@@ -4,9 +4,9 @@ from exchange_dialogues_functions import *
 video1_language, video1_actor, video1_number = "telugu", "Mahesh_Babu", 47
 video2_language, video2_actor, video2_number = "telugu", "Mahesh_Babu", 89
 
-if 'voletiv' in os.getcwd():
+if 'voleti.vikram' in os.getcwd():
     generator_model_name = '/shared/fusor/home/voleti.vikram/DeepLearningImplementations/pix2pix/models/20180314_152941_Mahesh_Babu_black_mouth_polygons/generator_latest.h5'
-elif 'voleti.vikram' in os.getcwd():
+elif 'voletiv' in os.getcwd():
     generator_model_name = '/home/voletiv/GitHubRepos/pix2pix/models/DeepLearningImplementations/20180314_152941_Mahesh_Babu_black_mouth_polygons/generator_latest.h5'
 
 # Load generator
