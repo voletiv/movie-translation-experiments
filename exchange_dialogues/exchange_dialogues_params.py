@@ -6,4 +6,9 @@ import numpy as np
 import os
 import tqdm
 
-DATASET_DIR = '/home/voletiv/Datasets/MOVIE_TRANSLATION/'
+if 'voletiv' in os.getcwd():
+    # voletiv
+    DATASET_DIR = '/home/voletiv/Datasets/MOVIE_TRANSLATION/'
+
+elif 'voleti.vikram' in os.getcwd():
+    DATASET_DIR = '/shared/fusor/home/voleti.vikram/MOVIE_TRANSLATION/'
