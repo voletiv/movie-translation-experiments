@@ -1,4 +1,15 @@
+import cv2
+import dlib
+import imageio
+import math
+import numpy as np
+import os
+import subprocess
+import tqdm
+
 from exchange_dialogues_params import *
+
+config = MovieTranslationConfig()
 
 
 def load_generator(model_path):
@@ -9,7 +20,7 @@ def load_generator(model_path):
 def exchange_dialogues(generator_model,
                        video1_language="telugu", video1_actor="Mahesh_Babu", video1_number=47,
                        video2_language="telugu", video2_actor="Mahesh_Babu", video2_number=89,
-                       save_dir='.', verbose=False):
+                       output_dir='.', verbose=False):
 
     # Generator model input shape
     _, generator_model_input_rows, generator_model_input_cols, _ = generator_model.layers[0].input_shape
@@ -100,11 +111,11 @@ def exchange_dialogues(generator_model,
     new_video1_file_name = video1_language + '_' + video1_actor + '_%04d' % video1_number + '_with_audio_of_' + video2_language + '_' + video2_actor + '_%04d' % video2_number + '_black_mouth_polygons.mp4'
     save_new_video_frames_with_old_audio_as_mp4(np.array([frame for frame in video1_frames_with_black_mouth_and_video2_lip_polygons]).astype('uint8'),
                                                 audio_language=video2_language, audio_actor=video2_actor, audio_number=video2_number,
-                                                save_dir=save_dir, file_name=new_video1_file_name, verbose=verbose)
+                                                output_dir=output_dir, file_name=new_video1_file_name, verbose=verbose)
     new_video2_file_name = video2_language + '_' + video2_actor + '_%04d' % video2_number + '_with_audio_of_' + video1_language + '_' + video1_actor + '_%04d' % video1_number + '_black_mouth_polygons.mp4'
     save_new_video_frames_with_old_audio_as_mp4(np.array([frame for frame in video2_frames_with_black_mouth_and_video1_lip_polygons]).astype('uint8'),
                                                 audio_language=video1_language, audio_actor=video1_actor, audio_number=video1_number,
-                                                save_dir=save_dir, file_name=new_video2_file_name, verbose=verbose)
+                                                output_dir=output_dir, file_name=new_video2_file_name, verbose=verbose)
 
     # Generate new frames
     if verbose:
@@ -120,11 +131,11 @@ def exchange_dialogues(generator_model,
     new_video1_file_name = video1_language + '_' + video1_actor + '_%04d' % video1_number + '_with_audio_of_' + video2_language + '_' + video2_actor + '_%04d' % video2_number + '.mp4'
     save_new_video_frames_with_old_audio_as_mp4(new_video1_frames_generated,
                                                 audio_language=video2_language, audio_actor=video2_actor, audio_number=video2_number,
-                                                save_dir=save_dir, file_name=new_video1_file_name, verbose=verbose)
+                                                output_dir=output_dir, file_name=new_video1_file_name, verbose=verbose)
     new_video2_file_name = video2_language + '_' + video2_actor + '_%04d' % video2_number + '_with_audio_of_' + video1_language + '_' + video1_actor + '_%04d' % video1_number + '.mp4'
     save_new_video_frames_with_old_audio_as_mp4(new_video2_frames_generated,
                                                 audio_language=video1_language, audio_actor=video1_actor, audio_number=video1_number,
-                                                save_dir=save_dir, file_name=new_video2_file_name, verbose=verbose)
+                                                output_dir=output_dir, file_name=new_video2_file_name, verbose=verbose)
 
     return new_video1_frames_generated, new_video2_frames_generated
 
@@ -135,7 +146,7 @@ def exchange_dialogues(generator_model,
 
 
 def get_video_frames_dir(language, actor, number):
-    frames_dir = os.path.join(DATASET_DIR, 'frames', language, actor, actor + '_%04d' % number)
+    frames_dir = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'frames', language, actor, actor + '_%04d' % number)
     if not os.path.exists(landmarks_file):
         raise ValueError("[ERROR]: frames_dir", frames_dir, "does not exist!")
     else:
@@ -143,7 +154,7 @@ def get_video_frames_dir(language, actor, number):
 
 
 def get_landmarks(language, actor, number):
-    landmarks_file = os.path.join(DATASET_DIR, 'landmarks', language, actor, actor + '_%04d' % number + "_landmarks.txt")
+    landmarks_file = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'landmarks', language, actor, actor + '_%04d' % number + "_landmarks.txt")
     if not os.path.exists(landmarks_file):
         raiseValueError("[ERROR]: landmarks file", landmarks_file, "does not exist!")
     else:
@@ -297,7 +308,7 @@ def unnormalize_output_from_generator(np_array_output_of_generator):
 
 def save_new_video_frames_with_old_audio_as_mp4(frames,
                                                 audio_language="telugu", audio_actor="Mahesh_Babu", audio_number=89,
-                                                save_dir='.', file_name='new_video.mp4', verbose=False):
+                                                output_dir='.', file_name='new_video.mp4', verbose=False):
 
     # Save mp4 of frames
     if verbose:
@@ -309,17 +320,22 @@ def save_new_video_frames_with_old_audio_as_mp4(frames,
     # command = ['ffmpeg', '-loglevel', 'warning', '-ss', start_time, '-i', orig_video, '-t', duration, '-y',
     #                '-vn', '-acodec', 'aac', '-strict', '-2', '/tmp/video_audio.aac']
     command = ['ffmpeg', '-loglevel', 'error',
-               '-i', os.path.join(DATASET_DIR, 'videos', audio_language, audio_actor, audio_actor + '_%04d.mp4' % audio_number),
+               '-i', os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'videos', audio_language, audio_actor, audio_actor + '_%04d.mp4' % audio_number),
                '-vn', '-y', '-acodec', 'aac', '-strict', '-2', '/tmp/video_audio.aac']
     if verbose:
         print("Extracting audio from original files:", command)
     commandReturn = subprocess.call(command)    # subprocess.call returns 0 on successful run
 
     # Combine frames with audio
+    if not os.path.exists(output_dir):
+        print("Making", output_dir)
+        os.makedirs(output_dir)
+
     command = ['ffmpeg', '-loglevel', 'error',
                '-i', '/tmp/video.mp4', '-i', '/tmp/video_audio.aac',
                '-vcodec', 'libx264', '-preset', 'ultrafast', '-profile:v', 'main', '-acodec', 'aac', '-strict', '-2',
-               os.path.join(save_dir, file_name)]
+               os.path.join(output_dir, file_name)]
+
     if verbose:
         print("Combining frames with audio:", command)
     commandReturn = subprocess.call(command)    # subprocess.call returns 0 on successful run
@@ -337,13 +353,13 @@ def save_new_video_frames_with_old_audio_as_mp4(frames,
 
 
 def get_metadata(language="telugu", actor="Mahesh_Babu", number=47):
-    metadata_file = os.path.join(DATASET_DIR, "metadata", language, actor + '.txt')
+    metadata_file = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, "metadata", language, actor + '.txt')
     with open(metadata_file, 'r') as f:
         for l, line in enumerate(f):
             if l == number:
                 metadata = line.strip().split()
                 break
-    return os.path.join(DATASET_DIR, "in_progress", metadata[1] + '.mp4'), metadata[2], metadata[3]
+    return os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, "in_progress", metadata[1] + '.mp4'), metadata[2], metadata[3]
 
 
 def unrotate_lip_landmarks_point_by_point(lip_landmarks):
