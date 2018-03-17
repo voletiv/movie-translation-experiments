@@ -147,7 +147,7 @@ def exchange_dialogues(generator_model,
 
 def get_video_frames_dir(language, actor, number):
     frames_dir = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'frames', language, actor, actor + '_%04d' % number)
-    if not os.path.exists(landmarks_file):
+    if not os.path.exists(frames_dir):
         raise ValueError("[ERROR]: frames_dir", frames_dir, "does not exist!")
     else:
         return frames_dir
