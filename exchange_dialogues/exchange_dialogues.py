@@ -15,7 +15,9 @@ if __name__ == '__main__':
     parser.add_argument('video2_language', type=str, choices=['english', 'hindi', 'telugu'], help="video2_language: eg. 'telugu'")
     parser.add_argument('video2_actor', type=str, help="video2_actor: eg. 'Mahesh_Babu'")
     parser.add_argument('video2_number', type=int, help="video2_number: eg. '89'")
-    parser.add_argument('--output_dir', '-o', type=str, default=os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'exchanged_videos'), help="output_dir to save the videos in: def: '<path/to/MOVIE_TRANSLATION>/exchanged_videos'")
+    parser.add_argument('--output_dir', '-o', type=str, default=os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'exchanged_videos'),
+                        help="output_dir to save the videos in: def: '<path/to/MOVIE_TRANSLATION>/exchanged_videos'")
+    parser.add_argument('--verbose', '-v', action="store_true", help="video2_number: eg. '89'")
 
     args = parser.parse_args()
 
@@ -31,6 +33,6 @@ if __name__ == '__main__':
         new_video1, new_video2 = exchange_dialogues(generator_model,
                                                     video1_language=args.video1_language, video1_actor=args.video1_actor, video1_number=args.video1_number,
                                                     video2_language=args.video2_language, video2_actor=args.video2_actor, video2_number=args.video2_number,
-                                                    output_dir=args.output_dir, verbose=True)
+                                                    output_dir=args.output_dir, verbose=verbose)
     except ValueError as err:
         print(err)

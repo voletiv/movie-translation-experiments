@@ -41,7 +41,7 @@ def exchange_dialogues(generator_model,
         print("Getting video2 dir and landmarks")
     try:
         video2_frames_dir = get_video_frames_dir(video2_language, video2_actor, video2_number)
-        video2_length = get_landmarks(video2_language, video2_actor, video2_number)
+        video2_landmarks = get_landmarks(video2_language, video2_actor, video2_number)
     except ValueError as err:
         raise ValueError(err)
 
