@@ -17,13 +17,23 @@ def exchange_dialogues(generator_model,
     # Video 1
     if verbose:
         print("Getting video1 dir and landmarks")
-    video1_frames_dir, video1_landmarks = get_video_frames_dir_and_landmarks(video1_language, video1_actor, video1_number)
+    try:
+        video1_frames_dir = get_video_frames_dir(video1_language, video1_actor, video1_number)
+        video1_landmarks = get_landmarks(video1_language, video1_actor, video1_number)
+    except ValueError as err:
+        raise ValueError(err)
+
     video1_length = len(video1_landmarks)
 
     # Video 2
     if verbose:
         print("Getting video2 dir and landmarks")
-    video2_frames_dir, video2_landmarks = get_video_frames_dir_and_landmarks(video2_language, video2_actor, video2_number)
+    try:
+        video2_frames_dir = get_video_frames_dir(video2_language, video2_actor, video2_number)
+        video2_length = get_landmarks(video2_language, video2_actor, video2_number)
+    except ValueError as err:
+        raise ValueError(err)
+
     video2_length = len(video2_landmarks)
 
     # Choose the smaller one as the target length, and choose those many central frames
@@ -124,11 +134,20 @@ def exchange_dialogues(generator_model,
 #################################################
 
 
-def get_video_frames_dir_and_landmarks(language, actor, number):
+def get_video_frames_dir(language, actor, number):
     frames_dir = os.path.join(DATASET_DIR, 'frames', language, actor, actor + '_%04d' % number)
+    if not os.path.exists(landmarks_file):
+        raise ValueError("[ERROR]: frames_dir", frames_dir, "does not exist!")
+    else:
+        return frames_dir
+
+
+def get_landmarks(language, actor, number):
     landmarks_file = os.path.join(DATASET_DIR, 'landmarks', language, actor, actor + '_%04d' % number + "_landmarks.txt")
-    landmarks = read_landmarks_list_from_txt(landmarks_file)
-    return frames_dir, landmarks
+    if not os.path.exists(landmarks_file):
+        raiseValueError("[ERROR]: landmarks file", landmarks_file, "does not exist!")
+    else:
+        return read_landmarks_list_from_txt(landmarks_file)
 
 
 def read_landmarks_list_from_txt(path):
