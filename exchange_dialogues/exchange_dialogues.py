@@ -34,5 +34,9 @@ if __name__ == '__main__':
                                                     video1_language=args.video1_language, video1_actor=args.video1_actor, video1_number=args.video1_number,
                                                     video2_language=args.video2_language, video2_actor=args.video2_actor, video2_number=args.video2_number,
                                                     output_dir=args.output_dir, verbose=args.verbose)
+
+    except KeyboardInterrupt:
+        pass
+
     except ValueError as err:
         print(err)

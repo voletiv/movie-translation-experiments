@@ -1,6 +1,7 @@
 from movie_translation_data_creation_params import *
 from movie_translation_data_creation_functions import *
 
+config = MovieTranslationConfig()
 
 # Load detector, predictor
 detector, predictor = load_detector_and_predictor()
@@ -10,17 +11,17 @@ detector, predictor = load_detector_and_predictor()
 # extract faces and landmarks from video clips,
 # blacken mouth and draw mouth polygon
 # save combined frame + frame_with_blackened_mouth_and_polygon
-for language in tqdm.tqdm(sorted(os.listdir(os.path.join(DATASET_DIR, 'metadata')))):
+for language in tqdm.tqdm(sorted(os.listdir(os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'metadata')))):
     # Read all metadata files in the language,
     # containing the columns: | output_file_name.mp4 | youtubeID | start_time | duration |
-    for metadata_txt_file in tqdm.tqdm(sorted(glob.glob(os.path.join(DATASET_DIR, 'metadata', language, "*")))):
+    for metadata_txt_file in tqdm.tqdm(sorted(glob.glob(os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'metadata', language, "*")))):
         actor = os.path.splitext(os.path.basename(metadata_txt_file))[0]
         print("\n", actor, "\n")
         metadata = read_metadata(metadata_txt_file)
         # Extract video clips
         print("Extracting video clips...")
         extract_video_clips(language, actor, metadata, verbose=False)
-        video_clips_dir = os.path.join(DATASET_DIR, 'videos', language, actor)
+        video_clips_dir = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'videos', language, actor)
         # Extract faces and landmarks from video clips
         print("Extracting faces and landmarks from video clips...")
         for video_file in tqdm.tqdm(sorted(glob.glob(os.path.join(video_clips_dir, "*.mp4")))):
@@ -29,9 +30,9 @@ for language in tqdm.tqdm(sorted(os.listdir(os.path.join(DATASET_DIR, 'metadata'
 
 # ONLY IF NOT DONE DURING PREVIOUS STEP!!!
 # # Make mouth_blacked_and_keypoints_polygon images
-# for language in tqdm.tqdm(sorted(os.listdir(os.path.join(DATASET_DIR, 'frames')))):
-#     for actor in tqdm.tqdm(sorted(os.listdir(os.path.join(DATASET_DIR, 'frames', language)))):
-#         for video_name in tqdm.tqdm(sorted(os.listdir(os.path.join(DATASET_DIR, 'frames', language, actor)))):
+# for language in tqdm.tqdm(sorted(os.listdir(os.path.join(MOVIE_TRANSLATION_DATASET_DIR, 'frames')))):
+#     for actor in tqdm.tqdm(sorted(os.listdir(os.path.join(MOVIE_TRANSLATION_DATASET_DIR, 'frames', language)))):
+#         for video_name in tqdm.tqdm(sorted(os.listdir(os.path.join(MOVIE_TRANSLATION_DATASET_DIR, 'frames', language, actor)))):
 #             # Make mouth_blacked_and_keypoints_polygon images for each video
 #             make_blackened_mouths_and_mouth_polygons(video_name)
 
@@ -59,7 +60,7 @@ if not os.path.exists(output_dir_test):
 
 # Read all frame names
 all_frames = []
-for video_name in tqdm.tqdm(sorted(glob.glob(os.path.join(DATASET_DIR, 'frames_combined', language, actor, '*/')))):
+for video_name in tqdm.tqdm(sorted(glob.glob(os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'frames_combined', language, actor, '*/')))):
     for frame in sorted(glob.glob(os.path.join(video_name, '*'))):
         all_frames.append(frame)
 
