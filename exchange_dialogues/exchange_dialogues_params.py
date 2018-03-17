@@ -1,3 +1,5 @@
+import os
+
 class MovieTranslationConfig():
 
     if 'voletiv' in os.getcwd():
