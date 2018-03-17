@@ -112,30 +112,42 @@ def exchange_dialogues(generator_model,
     save_new_video_frames_with_old_audio_as_mp4(np.array([frame for frame in video1_frames_with_black_mouth_and_video2_lip_polygons]).astype('uint8'),
                                                 audio_language=video2_language, audio_actor=video2_actor, audio_number=video2_number,
                                                 output_dir=output_dir, file_name=new_video1_file_name, verbose=verbose)
-    new_video2_file_name = video2_language + '_' + video2_actor + '_%04d' % video2_number + '_with_audio_of_' + video1_language + '_' + video1_actor + '_%04d' % video1_number + '_black_mouth_polygons.mp4'
-    save_new_video_frames_with_old_audio_as_mp4(np.array([frame for frame in video2_frames_with_black_mouth_and_video1_lip_polygons]).astype('uint8'),
-                                                audio_language=video1_language, audio_actor=video1_actor, audio_number=video1_number,
-                                                output_dir=output_dir, file_name=new_video2_file_name, verbose=verbose)
+
+    if video1_language != video2_language or video1_actor != video2_actor or video1_number != video2_number:
+        process_video2 = True
+    else:
+        process_video2 = False
+
+    if process_video2:
+        new_video2_file_name = video2_language + '_' + video2_actor + '_%04d' % video2_number + '_with_audio_of_' + video1_language + '_' + video1_actor + '_%04d' % video1_number + '_black_mouth_polygons.mp4'
+        save_new_video_frames_with_old_audio_as_mp4(np.array([frame for frame in video2_frames_with_black_mouth_and_video1_lip_polygons]).astype('uint8'),
+                                                    audio_language=video1_language, audio_actor=video1_actor, audio_number=video1_number,
+                                                    output_dir=output_dir, file_name=new_video2_file_name, verbose=verbose)
 
     # Generate new frames
     if verbose:
         print("Generating new frames using Pix2Pix")
     new_video1_frames_generated = generator_model.predict(normalize_input_to_generator(video1_frames_with_black_mouth_and_video2_lip_polygons))
-    new_video2_frames_generated = generator_model.predict(normalize_input_to_generator(video2_frames_with_black_mouth_and_video1_lip_polygons))
+    if process_video2:
+        new_video2_frames_generated = generator_model.predict(normalize_input_to_generator(video2_frames_with_black_mouth_and_video1_lip_polygons))
 
     # Rescale generated frames from -1->1 to 0->255
     new_video1_frames_generated = unnormalize_output_from_generator(new_video1_frames_generated)
-    new_video2_frames_generated = unnormalize_output_from_generator(new_video2_frames_generated)
+    if process_video2:
+        new_video2_frames_generated = unnormalize_output_from_generator(new_video2_frames_generated)
+    else:
+        new_video2_frames_generated = new_video1_frames_generated
 
     # Save as new mp4 with audio
     new_video1_file_name = video1_language + '_' + video1_actor + '_%04d' % video1_number + '_with_audio_of_' + video2_language + '_' + video2_actor + '_%04d' % video2_number + '.mp4'
     save_new_video_frames_with_old_audio_as_mp4(new_video1_frames_generated,
                                                 audio_language=video2_language, audio_actor=video2_actor, audio_number=video2_number,
                                                 output_dir=output_dir, file_name=new_video1_file_name, verbose=verbose)
-    new_video2_file_name = video2_language + '_' + video2_actor + '_%04d' % video2_number + '_with_audio_of_' + video1_language + '_' + video1_actor + '_%04d' % video1_number + '.mp4'
-    save_new_video_frames_with_old_audio_as_mp4(new_video2_frames_generated,
-                                                audio_language=video1_language, audio_actor=video1_actor, audio_number=video1_number,
-                                                output_dir=output_dir, file_name=new_video2_file_name, verbose=verbose)
+    if process_video2:
+        new_video2_file_name = video2_language + '_' + video2_actor + '_%04d' % video2_number + '_with_audio_of_' + video1_language + '_' + video1_actor + '_%04d' % video1_number + '.mp4'
+        save_new_video_frames_with_old_audio_as_mp4(new_video2_frames_generated,
+                                                    audio_language=video1_language, audio_actor=video1_actor, audio_number=video1_number,
+                                                    output_dir=output_dir, file_name=new_video2_file_name, verbose=verbose)
 
     return new_video1_frames_generated, new_video2_frames_generated
 
