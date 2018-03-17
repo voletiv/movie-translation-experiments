@@ -3,7 +3,7 @@ from exchange_dialogues_functions import *
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='Train model')
+    parser = argparse.ArgumentParser(description='Exchange dialogues between 2 videos in the MOVIE_TRANSLATION dataset. E.g.: python3 exchange_dialogues.py telugu Mahesh_Babu 47 hindi Aamir_Khan 33')
     parser.add_argument('video1_language', type=str, help="video1_language: eg. 'telugu'")
     parser.add_argument('video1_actor', type=str,help="video1_actor: eg. 'Mahesh_Babu'")
     parser.add_argument('video1_number', type=int,help="video1_number: eg. '47'")
