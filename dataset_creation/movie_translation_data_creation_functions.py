@@ -126,6 +126,9 @@ def extract_face_frames_from_video(video_file, detector, predictor,
             if save_landmarks_as_txt or save_landmarks_as_csv:
                 landmarks_list.append([video_frame_name] + landmarks_in_face_square_expanded_resized)
 
+            # Write face image
+            cv2.imwrite(os.path.join(video_frames_dir, video_frame_name), cv2.cvtColor(face_square_expanded_resized, cv2.COLOR_RGB2BGR))
+
             if save_with_blackened_mouths_and_polygons:
 
                 # Make new frame with blackened mouth
@@ -149,12 +152,8 @@ def extract_face_frames_from_video(video_file, detector, predictor,
 
                 # Write combined frame+frame_with_blacked_mouth_and_polygon image
                 face_combined = np.hstack((face_square_expanded_resized, face_with_blackened_mouth_and_mouth_polygon))
-                cv2.imwrite(os.path.join(video_frames_dir, video_frame_name), cv2.cvtColor(face_combined, cv2.COLOR_RGB2BGR))
-
-            # If save only face (and not with blackened mouth and polygon)
-            else:
-                # Write face image
-                cv2.imwrite(os.path.join(video_frames_dir, video_frame_name), cv2.cvtColor(face_square_expanded_resized, cv2.COLOR_RGB2BGR))
+                video_frame_combined_name = video_file_name + "_frame_combined_{0:03d}.png".format(frame_number)
+                cv2.imwrite(os.path.join(video_frames_combined_dir, video_frame_combined_name), cv2.cvtColor(face_combined, cv2.COLOR_RGB2BGR))
 
         # If landmarks are not found
         else:
