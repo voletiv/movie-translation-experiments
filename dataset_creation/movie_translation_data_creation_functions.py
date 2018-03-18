@@ -81,54 +81,90 @@ def extract_face_frames_from_video(video_file, detector, predictor,
     actor = video_file_split[-2]
     language = video_file_split[-3]
     video_frames_dir = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, "frames", language, actor, video_file_name)
+    video_frames_combined_dir = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, "frames_combined", language, actor, video_file_name)
+
     # Make video_frames_dir
     if not os.path.exists(video_frames_dir):
         os.makedirs(video_frames_dir)
+
+    # Make video_frames_combined_dir
+    if save_with_blackened_mouths_and_polygons:
+        if not os.path.exists(video_frames_combined_dir):
+            os.makedirs(video_frames_combined_dir)
+
     # Make landmarks_dir
     if save_landmarks_as_txt or save_landmarks_as_csv:
         landmarks_dir = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, "landmarks", language, actor)
         if not os.path.exists(landmarks_dir):
             os.makedirs(landmarks_dir)
+
     # Read video
     video_frames = imageio.get_reader(video_file)
+
     if save_gif:
         faces_list = []
+
     if save_landmarks_as_txt or save_landmarks_as_csv:
         landmarks_list = []
+
+    # For each frame in the video
     for frame_number, frame in tqdm.tqdm(enumerate(video_frames), total=len(video_frames)):
         video_frame_name = video_file_name + "_frame_{0:03d}.png".format(frame_number)
+
         # Get landmarks
         landmarks = get_landmarks(frame, detector, predictor)
+
+        # If landmarks are found
         if landmarks:
-            # Crop 1.5x face and resize to 224x224
+
+            # Crop 1.5x face, resize to 224x224, note new landmark locations
             face_square_expanded_resized, landmarks_in_face_square_expanded_resized = crop_face_good(frame, landmarks)
+
             if save_gif:
                 faces_list.append(face_square_expanded_resized)
+
             if save_landmarks_as_txt or save_landmarks_as_csv:
                 landmarks_list.append([video_frame_name] + landmarks_in_face_square_expanded_resized)
+
             if save_with_blackened_mouths_and_polygons:
+
                 # Make new frame with blackened mouth
                 mouth_landmarks = np.array(landmarks_in_face_square_expanded_resized[48:68])
+
+                # TODO: eliminate dlib at least for rectangles
                 mouth_rect = dlib.rectangle(int(np.min(mouth_landmarks[:, 0])), int(np.min(mouth_landmarks[:, 1])), int(np.max(mouth_landmarks[:, 0])), int(np.max(mouth_landmarks[:, 1])))
+                # mouth_rect = [int(np.min(mouth_landmarks[:, 0])), int(np.min(mouth_landmarks[:, 1])), int(np.max(mouth_landmarks[:, 0])), int(np.max(mouth_landmarks[:, 1]))]
+
+                # Expand mouth_rect
                 mouth_rect_expanded = expand_rect(mouth_rect, scale_w=1.2, scale_h=1.8, frame_shape=(224, 224))
+
+                # Init face_with_blackened_mouth_and_mouth_polygon
+                face_with_blackened_mouth_and_mouth_polygon = np.array(face_square_expanded_resized)
+
                 # Blacken mouth in frame
-                frame_with_blackened_mouth = np.array(frame)
-                frame_with_blackened_mouth[mouth_rect_expanded.top():mouth_rect_expanded.bottom(), mouth_rect_expanded.left():mouth_rect_expanded.right()] = 0
+                face_with_blackened_mouth_and_mouth_polygon[mouth_rect_expanded.top():mouth_rect_expanded.bottom(), mouth_rect_expanded.left():mouth_rect_expanded.right()] = 0
+
                 # Draw mouth polygon in frame
-                frame_with_blackened_mouth_and_mouth_polygon = np.array(frame_with_blackened_mouth)
-                frame_with_blackened_mouth_and_mouth_polygon = cv2.drawContours(frame_with_blackened_mouth_and_mouth_polygon, [mouth_landmarks[:12], mouth_landmarks[12:]], -1, (255, 255, 255))
+                face_with_blackened_mouth_and_mouth_polygon = cv2.drawContours(face_with_blackened_mouth_and_mouth_polygon, [mouth_landmarks[:12], mouth_landmarks[12:]], -1, (255, 255, 255))
+
                 # Write combined frame+frame_with_blacked_mouth_and_polygon image
-                frame_combined = np.hstack((frame, frame_with_blackened_mouth_and_mouth_polygon))
-                cv2.imwrite(os.path.join(video_frames_dir, video_frame_name), cv2.cvtColor(frame_combined, cv2.COLOR_RGB2BGR))
+                face_combined = np.hstack((face_square_expanded_resized, face_with_blackened_mouth_and_mouth_polygon))
+                cv2.imwrite(os.path.join(video_frames_dir, video_frame_name), cv2.cvtColor(face_combined, cv2.COLOR_RGB2BGR))
+
+            # If save only face (and not with blackened mouth and polygon)
             else:
                 # Write face image
                 cv2.imwrite(os.path.join(video_frames_dir, video_frame_name), cv2.cvtColor(face_square_expanded_resized, cv2.COLOR_RGB2BGR))
+
+        # If landmarks are not found
         else:
             if save_landmarks_as_txt or save_landmarks_as_csv:
                 landmarks_list.append([video_frame_name] + [])
+
     # Save gif
     if save_gif:
         imageio.mimsave(os.path.join(video_frames_dir, video_file_name + ".gif"), faces_list)
+
     # Save landmarks
     # txt is smaller than csv
     if save_landmarks_as_txt:
@@ -160,6 +196,7 @@ def crop_face_good(frame, landmarks):
     # - Make face bounding box square to the higher of width and height
     # - Expand face bounding box to 1.5x
     # - Resize frame[face_bounding_box] to 224x224
+    # - Note the landmarks in the expanded resized face
     landmarks_np = np.array(landmarks)
     # dlib.rectangle = left, top, right, bottom
     face_rect = dlib.rectangle(int(np.min(landmarks_np[:, 0])), int(np.min(landmarks_np[:, 1])), int(np.max(landmarks_np[:, 0])), int(np.max(landmarks_np[:, 1])))
@@ -180,11 +217,11 @@ def make_rect_shape_square(rect):
         w = rect.right() - rect.left()
         h = rect.bottom() - rect.top()
     else:
-        # Rect: (x, y, w, h)
+        # Rect: (x, y, x+w, y+h)
         x = rect[0]
         y = rect[1]
-        w = rect[2]
-        h = rect[3]
+        w = rect[2] - x
+        h = rect[3] - y
     # If width > height
     if w > h:
         new_x = x
@@ -201,7 +238,7 @@ def make_rect_shape_square(rect):
     if type(rect) == dlib.rectangle:
         return dlib.rectangle(new_x, new_y, new_x + new_w, new_y + new_h)
     else:
-        return [new_x, new_y, new_w, new_h]
+        return [new_x, new_y, new_x + new_w, new_y + new_h]
 
 
 def expand_rect(rect, scale=None, scale_w=1.5, scale_h=1.5, frame_shape=(256, 256)):

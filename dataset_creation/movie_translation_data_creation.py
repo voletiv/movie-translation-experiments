@@ -25,7 +25,7 @@ for language in tqdm.tqdm(sorted(os.listdir(os.path.join(config.MOVIE_TRANSLATIO
         # Extract faces and landmarks from video clips
         print("Extracting faces and landmarks from video clips...")
         for video_file in tqdm.tqdm(sorted(glob.glob(os.path.join(video_clips_dir, "*.mp4")))):
-            extract_face_frames_from_video(video_file, detector, predictor, save_with_blackened_mouths_and_polygons=True, save_gif=True, save_landmarks_as_txt=True)
+            extract_face_frames_from_video(video_file, detector, predictor, save_with_blackened_mouths_and_polygons=True, save_gif=False, save_landmarks_as_txt=True)
 
 
 # ONLY IF NOT DONE DURING PREVIOUS STEP!!!
