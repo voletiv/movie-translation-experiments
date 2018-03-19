@@ -3,9 +3,12 @@ from movie_translation_data_creation_functions import *
 
 config = MovieTranslationConfig()
 
-# Load detector, predictor
-detector, predictor = load_detector_and_predictor()
+# Load landmarks detector
+if config.USING_DLIB_OR_FACE_ALIGNMENT == 'dlib':
+    dlib_detector, dlib_predictor = load_dlib_detector_and_predictor()
 
+elif config.USING_DLIB_OR_FACE_ALIGNMENT == 'face_alignment':
+    face_alignment_object = load_face_alignment_object()
 
 # Clip videos by dialogue times from metadata,
 # extract faces and landmarks from video clips,
@@ -34,7 +37,7 @@ for language in tqdm.tqdm(sorted(os.listdir(os.path.join(config.MOVIE_TRANSLATIO
 #     for actor in tqdm.tqdm(sorted(os.listdir(os.path.join(MOVIE_TRANSLATION_DATASET_DIR, 'frames', language)))):
 #         for video_name in tqdm.tqdm(sorted(os.listdir(os.path.join(MOVIE_TRANSLATION_DATASET_DIR, 'frames', language, actor)))):
 #             # Make mouth_blacked_and_keypoints_polygon images for each video
-#             make_blackened_mouths_and_mouth_polygons(video_name)
+#             write_combined_frames_with_blackened_mouths_and_mouth_polygons(video_name)
 
 ######################################
 # Split all into train, val and test,

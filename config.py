@@ -16,6 +16,9 @@ class MovieTranslationConfig():
         SHAPE_PREDICTOR_PATH = '/shared/fusor/home/voleti.vikram/shape_predictor_68_face_landmarks.dat'
         GENERATOR_MODEL_NAME = '/shared/fusor/home/voleti.vikram/DeepLearningImplementations/pix2pix/models/20180314_152941_Mahesh_Babu_black_mouth_polygons/generator_latest.h5'
 
+    # To use 'dlib' or 'face_alignment' for landmark detection
+    # Check https://github.com/1adrianb/face-alignment for 'face_alignment' installation instructions
+    USING_DLIB_OR_FACE_ALIGNMENT = 'face_alignment'
 
 
 # youtube_videos
