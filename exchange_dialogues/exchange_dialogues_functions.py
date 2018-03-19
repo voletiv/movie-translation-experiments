@@ -1,13 +1,17 @@
 import cv2
-import dlib
 import imageio
 import math
 import numpy as np
 import os
 import subprocess
+import sys
 import tqdm
 
 from exchange_dialogues_params import *
+
+sys.path.append('../dataset_creation')
+from movie_translation_data_creation_functions import *
+
 
 config = MovieTranslationConfig()
 
@@ -173,16 +177,6 @@ def get_landmarks(language, actor, number):
         return read_landmarks_list_from_txt(landmarks_file)
 
 
-def read_landmarks_list_from_txt(path):
-    landmarks_list = []
-    translate_table = dict((ord(char), None) for char in '[],')
-    with open(path, "r") as f:
-        for line in f:
-            row = line.strip().split(" [")
-            landmarks_list.append([row[0]] + [[int(e.split(" ")[0].translate(translate_table)), int(e.split(" ")[1].translate(translate_table))] for e in row[1:]])
-    return landmarks_list
-
-
 def exchange_landmarks(video1_frame_lip_landmarks, video2_frame_lip_landmarks):
 
     # Unrotate both frames' lip landmarks
@@ -237,77 +231,6 @@ def plot_landmarks(frame, landmarks):
         cv2.circle(frame, (int(x), int(y)), 1, (0, 0, 255), -1)
     plt.imshow(frame)
     plt.show()
-
-
-def plot_lip_landmarks(lip_landmarks, frame=None, video=False):
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    if video:
-        plt.ion()
-        fig.show()
-        fig.canvas.draw()
-    if frame is None:
-        frame = np.zeros((224, 224))
-    else:
-        frame = np.array(frame)
-    for l, lip_landmark in enumerate(lip_landmarks):
-        frame[int(lip_landmark[1])-2:int(lip_landmark[1])+2, int(lip_landmark[0])-2:int(lip_landmark[0])+2] = 1
-        ax.imshow(frame)
-        if video:
-            ax.set_title(str(l))
-            fig.canvas.draw()
-    if not video:
-        plt.show()
-
-
-def make_black_mouth_and_lips_polygons(frame, lip_landmarks):
-
-        # Find mouth bounding box
-        mouth_rect = dlib.rectangle(int(np.min(lip_landmarks[:, 0])), int(np.min(lip_landmarks[:, 1])), int(np.max(lip_landmarks[:, 0])), int(np.max(lip_landmarks[:, 1])))
-
-        # Expand mouth bounding box
-        mouth_rect_expanded = expand_rect(mouth_rect, scale_w=1.2, scale_h=1.8, frame_shape=(224, 224))
-
-        # Make new frame for blackened mouth and lip polygons
-        frame_with_blackened_mouth_and_lip_polygons = np.array(frame)
-
-        # Blacken (expanded) mouth in frame
-        frame_with_blackened_mouth_and_lip_polygons[mouth_rect_expanded.top():mouth_rect_expanded.bottom(),
-                                                    mouth_rect_expanded.left():mouth_rect_expanded.right()] = 0
-
-        # Draw lips polygon in frame
-        frame_with_blackened_mouth_and_lip_polygons = cv2.drawContours(frame_with_blackened_mouth_and_lip_polygons,
-                                                                       [lip_landmarks[:12], lip_landmarks[12:]], -1, (255, 255, 255))
-
-        return frame_with_blackened_mouth_and_lip_polygons
-
-
-def expand_rect(rect, scale=None, scale_w=1.5, scale_h=1.5, frame_shape=(256, 256)):
-    if scale is not None:
-        scale_w = scale
-        scale_h = scale
-    # dlib.rectangle
-    if type(rect) == dlib.rectangle:
-        x = rect.left()
-        y = rect.top()
-        w = rect.right() - rect.left()
-        h = rect.bottom() - rect.top()
-    else:
-        # Rect: (x, y, w, h)
-        x = rect[0]
-        y = rect[1]
-        w = rect[2]
-        h = rect[3]
-    new_w = int(w * scale_w)
-    new_h = int(h * scale_h)
-    new_x = max(0, min(frame_shape[1] - w, x - int((new_w - w) / 2)))
-    new_y = max(0, min(frame_shape[0] - h, y - int((new_h - h) / 2)))
-    # w = min(w, frame_shape[1] - x)
-    # h = min(h, frame_shape[0] - y)
-    if type(rect) == dlib.rectangle:
-        return dlib.rectangle(new_x, new_y, new_x + new_w, new_y + new_h)
-    else:
-        return [new_x, new_y, new_w, new_h]
 
 
 def normalize_input_to_generator(list_of_frames):
@@ -371,7 +294,7 @@ def get_metadata(language="telugu", actor="Mahesh_Babu", number=47):
             if l == number:
                 metadata = line.strip().split()
                 break
-    return os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, "in_progress", metadata[1] + '.mp4'), metadata[2], metadata[3]
+    return os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, "youtube_videos", metadata[1] + '.mp4'), metadata[2], metadata[3]
 
 
 def unrotate_lip_landmarks_point_by_point(lip_landmarks):

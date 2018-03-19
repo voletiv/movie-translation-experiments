@@ -36,7 +36,7 @@ if __name__ == '__main__':
                                                     output_dir=args.output_dir, verbose=args.verbose)
 
     except KeyboardInterrupt:
-        pass
+        print("\n\nKeyboard Interrupt! (Ctrl+C was pressed.)\n\n")
 
     except ValueError as err:
         print(err)
