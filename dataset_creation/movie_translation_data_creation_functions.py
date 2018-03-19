@@ -109,7 +109,6 @@ def extract_face_frames_and_landmarks_from_video(video_file, using_dlib_or_face_
     actor = video_file_split[-2]
     language = video_file_split[-3]
     video_frames_dir = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, "frames", language, actor, video_file_name)
-    video_frames_combined_dir = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, "frames_combined", language, actor, video_file_name)
 
     # Make video_frames_dir
     if not os.path.exists(video_frames_dir):
@@ -117,6 +116,7 @@ def extract_face_frames_and_landmarks_from_video(video_file, using_dlib_or_face_
 
     # Make video_frames_combined_dir
     if save_with_blackened_mouths_and_polygons:
+        video_frames_combined_dir = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, "frames_combined", language, actor, video_file_name)
         if not os.path.exists(video_frames_combined_dir):
             os.makedirs(video_frames_combined_dir)
 
@@ -190,7 +190,11 @@ def extract_face_frames_and_landmarks_from_video(video_file, using_dlib_or_face_
 
 
 def get_landmarks_using_FaceAlignment(frame, face_alignment_object):
-    return np.round(face_alignment_object.get_landmarks(frame)[0]).astype('int')
+    landmarks = face_alignment_object.get_landmarks(frame)[0]
+    if landmarks is not None:
+        return np.round(landmarks).astype('int')
+    else:
+        return None
 
 
 def get_landmarks_using_dlib_detector_and_predictor(frame, detector, predictor):
