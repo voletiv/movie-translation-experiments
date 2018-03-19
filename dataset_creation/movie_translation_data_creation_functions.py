@@ -268,18 +268,11 @@ def square_expand_resize_face_and_modify_landmarks(frame, landmarks):
 
 
 def make_rect_shape_square(rect):
-    # dlib.rectangle
-    if type(rect) == dlib.rectangle:
-        x = rect.left()
-        y = rect.top()
-        w = rect.right() - rect.left()
-        h = rect.bottom() - rect.top()
-    else:
-        # Rect: (x, y, x+w, y+h)
-        x = rect[0]
-        y = rect[1]
-        w = rect[2] - x
-        h = rect[3] - y
+    # Rect: (x, y, x+w, y+h)
+    x = rect[0]
+    y = rect[1]
+    w = rect[2] - x
+    h = rect[3] - y
     # If width > height
     if w > h:
         new_x = x
@@ -293,28 +286,18 @@ def make_rect_shape_square(rect):
         new_w = h
         new_h = h
     # Return
-    if type(rect) == dlib.rectangle:
-        return dlib.rectangle(new_x, new_y, new_x + new_w, new_y + new_h)
-    else:
-        return [new_x, new_y, new_x + new_w, new_y + new_h]
+    return [new_x, new_y, new_x + new_w, new_y + new_h]
 
 
 def expand_rect(rect, scale=None, scale_w=1.5, scale_h=1.5, frame_shape=(256, 256)):
     if scale is not None:
         scale_w = scale
         scale_h = scale
-    # dlib.rectangle
-    if type(rect) == dlib.rectangle:
-        x = rect.left()
-        y = rect.top()
-        w = rect.right() - rect.left()
-        h = rect.bottom() - rect.top()
-    else:
-        # Rect: (x, y, x+w, y+h)
-        x = rect[0]
-        y = rect[1]
-        w = rect[2] - x
-        h = rect[3] - y
+    # Rect: (x, y, x+w, y+h)
+    x = rect[0]
+    y = rect[1]
+    w = rect[2] - x
+    h = rect[3] - y
     # new_w, new_h
     new_w = int(w * scale_w)
     new_h = int(h * scale_h)
@@ -333,10 +316,7 @@ def expand_rect(rect, scale=None, scale_w=1.5, scale_h=1.5, frame_shape=(256, 25
     elif new_y + new_h > (frame_shape[0] - 1):
         new_h = (frame_shape[0] - 1) - new_y
     # Return
-    if type(rect) == dlib.rectangle:
-        return dlib.rectangle(new_x, new_y, new_x + new_w, new_y + new_h)
-    else:
-        return [new_x, new_y, new_x + new_w, new_y + new_h]
+    return [new_x, new_y, new_x + new_w, new_y + new_h]
 
 
 def write_landmarks_list_as_csv(path, landmarks_list):
