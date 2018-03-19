@@ -34,7 +34,7 @@ def exchange_dialogues(generator_model,
         print("Getting video1 dir and landmarks")
     try:
         video1_frames_dir = get_video_frames_dir(video1_language, video1_actor, video1_number)
-        video1_landmarks = get_landmarks(video1_language, video1_actor, video1_number)
+        video1_landmarks = read_landmarks(video1_language, video1_actor, video1_number)
     except ValueError as err:
         raise ValueError(err)
 
@@ -45,7 +45,7 @@ def exchange_dialogues(generator_model,
         print("Getting video2 dir and landmarks")
     try:
         video2_frames_dir = get_video_frames_dir(video2_language, video2_actor, video2_number)
-        video2_landmarks = get_landmarks(video2_language, video2_actor, video2_number)
+        video2_landmarks = read_landmarks(video2_language, video2_actor, video2_number)
     except ValueError as err:
         raise ValueError(err)
 
@@ -169,7 +169,7 @@ def get_video_frames_dir(language, actor, number):
         return frames_dir
 
 
-def get_landmarks(language, actor, number):
+def read_landmarks(language, actor, number):
     landmarks_file = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'landmarks', language, actor, actor + '_%04d' % number + "_landmarks.txt")
     if not os.path.exists(landmarks_file):
         raiseValueError("[ERROR]: landmarks file", landmarks_file, "does not exist!")
