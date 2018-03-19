@@ -93,6 +93,17 @@ def extract_face_frames_and_landmarks_from_video(video_file, using_dlib_or_face_
     [optional] Save all face frames as gif
     [optional] Save landmarks in MOVIE_TRANSLATION_DATASET_DIR/landmarks/language/actor
     '''
+
+    if using_dlib_or_face_alignment == 'dlib':
+        if dlib_detector is None or dlib_predictor is None:
+            print("\n\n[ERROR] Please provide dlib_detector and dlib_predictor! (Since you have chosen the option of 'dlib' in 'using_dlib_or_face_alignment')\n\n")
+            return
+
+    elif using_dlib_or_face_alignment == 'face_alignment':
+        if face_alignment_object is None:
+            print("\n\n[ERROR] Please provide face_alignment_object! (Since you have chosen the option of 'face_alignment' in 'using_dlib_or_face_alignment')\n\n")
+            return
+
     video_file_split = video_file.split("/")
     video_file_name = os.path.splitext(video_file_split[-1])[0]
     actor = video_file_split[-2]
