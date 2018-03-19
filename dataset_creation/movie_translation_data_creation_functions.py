@@ -190,9 +190,9 @@ def extract_face_frames_and_landmarks_from_video(video_file, using_dlib_or_face_
 
 
 def get_landmarks_using_FaceAlignment(frame, face_alignment_object):
-    landmarks = face_alignment_object.get_landmarks(frame)[0]
+    landmarks = face_alignment_object.get_landmarks(frame)
     if landmarks is not None:
-        return np.round(landmarks).astype('int')
+        return np.round(landmarks[0]).astype('int')
     else:
         return None
 
