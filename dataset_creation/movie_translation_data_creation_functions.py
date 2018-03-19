@@ -225,8 +225,8 @@ def make_black_mouth_and_lips_polygons(frame, mouth_landmarks):
         frame_with_blackened_mouth_and_lip_polygons = np.array(frame)
 
         # Blacken (expanded) mouth in frame
-        frame_with_blackened_mouth_and_lip_polygons[mouth_rect_expanded[0]:mouth_rect_expanded[2],
-                                                    mouth_rect_expanded[1]:mouth_rect_expanded[3]] = 0
+        frame_with_blackened_mouth_and_lip_polygons[mouth_rect_expanded[1]:mouth_rect_expanded[3],
+                                                    mouth_rect_expanded[0]:mouth_rect_expanded[2]] = 0
 
         # Draw lips polygon in frame
         frame_with_blackened_mouth_and_lip_polygons = cv2.drawContours(frame_with_blackened_mouth_and_lip_polygons,
