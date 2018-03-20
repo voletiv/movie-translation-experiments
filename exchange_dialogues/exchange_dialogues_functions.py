@@ -17,11 +17,14 @@ config = MovieTranslationConfig()
 
 
 def load_generator(model_path):
+    if not os.path.exists(model_path):
+        raise ValueError("[ERROR] model path does not exist! Given:", model_path)
+
     from keras.models import load_model
     return load_model(model_path)
 
 
-def exchange_dialogues(generator_model,
+def exchange_dialogues(generator_model, face_alignment_object,
                        video1_language="telugu", video1_actor="Mahesh_Babu", video1_number=47,
                        video2_language="telugu", video2_actor="Mahesh_Babu", video2_number=89,
                        output_dir='.', verbose=False):
@@ -73,6 +76,11 @@ def exchange_dialogues(generator_model,
     video1_frames_with_black_mouth_and_video2_lip_polygons = []
     video2_frames_with_black_mouth_and_video1_lip_polygons = []
 
+    if video1_language != video2_language or video1_actor != video2_actor or video1_number != video2_number:
+        process_video2 = True
+    else:
+        process_video2 = False
+
     # For each frame
     # read frame, blacken mouth, make new landmarks' polygon
     for i in tqdm.tqdm(range(video_length)):
@@ -85,42 +93,49 @@ def exchange_dialogues(generator_model,
             print("[ERROR]: Could not find", os.path.join(video1_frames_dir, video1_frame_name), "--- [SOLUTION] Retaining previous frame and landmarks")
             video1_landmarks[video1_frame_numbers[i]] = video1_landmarks[video1_frame_numbers[i-1]]
 
-        # Read video2 frame
-        video2_frame_name = video2_actor + '_%04d_frame_%03d.png' % (video2_number, video2_frame_numbers[i])
-        try:
-            video2_frame = cv2.cvtColor(cv2.imread(os.path.join(video2_frames_dir, video2_frame_name)), cv2.COLOR_BGR2RGB)
-        except:
-            print("[ERROR]: Could not find", os.path.join(video2_frames_dir, video2_frame_name), "--- [SOLUTION] Retaining previous frame and landmarks")
-            video2_landmarks[video2_frame_numbers[i]] = video2_landmarks[video2_frame_numbers[i-1]]
+        if process_video2:
+            # Read video2 frame
+            video2_frame_name = video2_actor + '_%04d_frame_%03d.png' % (video2_number, video2_frame_numbers[i])
+            try:
+                video2_frame = cv2.cvtColor(cv2.imread(os.path.join(video2_frames_dir, video2_frame_name)), cv2.COLOR_BGR2RGB)
+            except:
+                print("[ERROR]: Could not find", os.path.join(video2_frames_dir, video2_frame_name), "--- [SOLUTION] Retaining previous frame and landmarks")
+                video2_landmarks[video2_frame_numbers[i]] = video2_landmarks[video2_frame_numbers[i-1]]
+        else:
+            video2_frame = None
 
         # Get the landmarks
-        video1_frame_lip_landmarks = np.array(video1_landmarks[video1_frame_numbers[i]][1:][48:68])
-        video2_frame_lip_landmarks = np.array(video2_landmarks[video2_frame_numbers[i]][1:][48:68])
+        video1_frame_landmarks = np.array(video1_landmarks[video1_frame_numbers[i]][1:])
+        if process_video2:
+            video2_frame_landmarks = np.array(video2_landmarks[video2_frame_numbers[i]][1:])
+        else:
+            video2_landmarks = None
 
         # Exchange landmarks
-        new_video1_frame_lip_landmarks, new_video2_frame_lip_landmarks = exchange_landmarks(video1_frame_lip_landmarks, video2_frame_lip_landmarks)
+        new_video1_frame_landmarks, new_video2_frame_landmarks = exchange_landmarks(face_alignment_object,
+                                                                                    video1_frame, video1_frame_landmarks,
+                                                                                    video2_frame, video2_frame_landmarks)
 
         # Make frames with black mouth and polygon of landmarks
-        video1_frame_with_black_mouth_and_video2_lip_polygons = make_black_mouth_and_lips_polygons(video1_frame, new_video1_frame_lip_landmarks)
-        video2_frame_with_black_mouth_and_video1_lip_polygons = make_black_mouth_and_lips_polygons(video2_frame, new_video2_frame_lip_landmarks)
+        video1_frame_with_black_mouth_and_video2_lip_polygons = make_black_mouth_and_lips_polygons(video1_frame, new_video1_frame_landmarks[48:68])
+        if process_video2:
+            video2_frame_with_black_mouth_and_video1_lip_polygons = make_black_mouth_and_lips_polygons(video2_frame, new_video2_frame_landmarks[48:68])
 
         # Resize frame to input_size of generator_model
         video1_frame_with_black_mouth_and_video2_lip_polygons_resized = cv2.resize(video1_frame_with_black_mouth_and_video2_lip_polygons, (generator_model_input_rows, generator_model_input_cols), interpolation=cv2.INTER_AREA)
-        video2_frame_with_black_mouth_and_video1_lip_polygons_resized = cv2.resize(video2_frame_with_black_mouth_and_video1_lip_polygons, (generator_model_input_rows, generator_model_input_cols), interpolation=cv2.INTER_AREA)
+        if process_video2:
+            video2_frame_with_black_mouth_and_video1_lip_polygons_resized = cv2.resize(video2_frame_with_black_mouth_and_video1_lip_polygons, (generator_model_input_rows, generator_model_input_cols), interpolation=cv2.INTER_AREA)
 
+        # Append frame to list
         video1_frames_with_black_mouth_and_video2_lip_polygons.append(video1_frame_with_black_mouth_and_video2_lip_polygons_resized)
-        video2_frames_with_black_mouth_and_video1_lip_polygons.append(video2_frame_with_black_mouth_and_video1_lip_polygons_resized)
+        if process_video2:
+            video2_frames_with_black_mouth_and_video1_lip_polygons.append(video2_frame_with_black_mouth_and_video1_lip_polygons_resized)
 
     # Save black mouth polygons as mp4 with audio
     new_video1_file_name = video1_language + '_' + video1_actor + '_%04d' % video1_number + '_with_audio_of_' + video2_language + '_' + video2_actor + '_%04d' % video2_number + '_black_mouth_polygons.mp4'
     save_new_video_frames_with_old_audio_as_mp4(np.array([frame for frame in video1_frames_with_black_mouth_and_video2_lip_polygons]).astype('uint8'),
                                                 audio_language=video2_language, audio_actor=video2_actor, audio_number=video2_number,
                                                 output_dir=output_dir, file_name=new_video1_file_name, verbose=verbose)
-
-    if video1_language != video2_language or video1_actor != video2_actor or video1_number != video2_number:
-        process_video2 = True
-    else:
-        process_video2 = False
 
     if process_video2:
         new_video2_file_name = video2_language + '_' + video2_actor + '_%04d' % video2_number + '_with_audio_of_' + video1_language + '_' + video1_actor + '_%04d' % video1_number + '_black_mouth_polygons.mp4'
@@ -177,60 +192,32 @@ def read_landmarks(language, actor, number):
         return read_landmarks_list_from_txt(landmarks_file)
 
 
-def exchange_landmarks(video1_frame_lip_landmarks, video2_frame_lip_landmarks):
+def exchange_landmarks(face_alignment_object, video1_frame, video1_frame_lip_landmarks, video2_frame=None, video2_frame_lip_landmarks=None):
 
-    # Unrotate both frames' lip landmarks
-    video1_frame_lip_landmarks_unrotated, video1_landmarks_origin, angle_video1_landmarks_rotated_by = unrotate_lip_landmarks(video1_frame_lip_landmarks)
-    video2_frame_lip_landmarks_unrotated, video2_landmarks_origin, angle_video2_landmarks_rotated_by = unrotate_lip_landmarks(video2_frame_lip_landmarks)
+    # 1 -> 2
+    # Warp 1 to match 2's landmarks using Homography
+    video1_frame_warped_to_2 = find_homography_wraped_image(video1_frame, video1_frame_lip_landmarks[:36, :2],
+                                                            video2_frame_lip_landmarks[:36, :2], img_size=video2_frame.shape[:2])
+    # Get the warped image's landmarks
+    new_video1_frame_landmarks = get_landmarks_using_FaceAlignment(video1_frame_warped_to_2, face_alignment_object)
 
-    # Normalize both frames' rotated lip landmarks
-    video1_frame_lip_landmarks_unrotated_normalized, video1_ur, video1_uc, video1_sr, video1_sc = normalize_lip_landmarks(video1_frame_lip_landmarks_unrotated)
-    video2_frame_lip_landmarks_unrotated_normalized, video2_ur, video2_uc, video2_sr, video2_sc = normalize_lip_landmarks(video2_frame_lip_landmarks_unrotated)
+    # 2 -> 1
+    if video2_frame is not None and video2_frame_lip_landmarks is not None:
+        # Warp 2 to match 1's landmarks using Homography
+        video2_frame_warped_to_1 = find_homography_wraped_image(video2_frame, video2_frame_lip_landmarks[:36, :2],
+                                                                video1_frame_lip_landmarks[:36, :2], img_size=video1_frame.shape[:2])
+        # Get the warped image's landmarks
+        new_video2_frame_landmarks = get_landmarks_using_FaceAlignment(video2_frame_warped_to_1, face_alignment_object)
+    else:
+        new_video2_frame_landmarks = None
 
-    # Make new lip landmarks by unnormalizing and then rotating
-    new_video1_frame_lip_landmarks = np.round(rotate_points(unnormalize_lip_landmarks(video2_frame_lip_landmarks_unrotated_normalized,
-                                                                                      video1_ur, video1_uc, video1_sr, video1_sc),
-                                                            video1_landmarks_origin, angle_video1_landmarks_rotated_by)).astype('int')
-    new_video2_frame_lip_landmarks = np.round(rotate_points(unnormalize_lip_landmarks(video1_frame_lip_landmarks_unrotated_normalized,
-                                                                                      video2_ur, video2_uc, video2_sr, video2_sc),
-                                                            video2_landmarks_origin, angle_video2_landmarks_rotated_by)).astype('int')
-
-    return new_video1_frame_lip_landmarks, new_video2_frame_lip_landmarks
-
-
-def unrotate_lip_landmarks(lip_landmarks):
-    # lip_landmarks = list(lip_landmarks)
-    angle_rotated_by = math.atan((lip_landmarks[6][1] - lip_landmarks[0][1])/(lip_landmarks[6][0] - lip_landmarks[0][0]))
-    rotated_lip_landmarks = rotate_points(lip_landmarks, lip_landmarks[0], -angle_rotated_by)
-    return rotated_lip_landmarks, lip_landmarks[0], angle_rotated_by
+    return new_video1_frame_landmarks, new_video2_frame_landmarks
 
 
-def rotate_points(points, origin, angle):
-    """
-    Rotate a point counterclockwise by a given angle around a given origin.
-    The angle should be given in radians.
-    """
-    # When the points are row matrices, R is:
-    R = np.array([[math.cos(angle), math.sin(angle)], [-math.sin(angle), math.cos(angle)]])
-    return origin + np.dot(points-origin, R)
-
-
-def normalize_lip_landmarks(lip_landmarks):
-    ur, uc = lip_landmarks[0]
-    sr, sc = lip_landmarks[:, 0].max() - lip_landmarks[:, 0].min(), lip_landmarks[:, 1].max() - lip_landmarks[:, 1].min()
-    return (lip_landmarks - [ur, uc])/[sr, sc], ur, uc, sr, sc
-
-
-def unnormalize_lip_landmarks(lip_landmarks, ur, uc, sr, sc):
-    return lip_landmarks * [sr, sc] + [ur, uc]
-
-
-def plot_landmarks(frame, landmarks):
-    frame = np.array(frame)
-    for (x, y) in landmarks:
-        cv2.circle(frame, (int(x), int(y)), 1, (0, 0, 255), -1)
-    plt.imshow(frame)
-    plt.show()
+def find_homography_warped_image(src_image, src_points, dst_points, img_size=(224, 224)):
+    M, _ = cv2.findHomography(src_points, dst_points)
+    warped_image = cv2.warpPerspective(src_img, M, img_size)
+    return warped_image
 
 
 def normalize_input_to_generator(list_of_frames):
@@ -295,6 +282,41 @@ def get_metadata(language="telugu", actor="Mahesh_Babu", number=47):
                 metadata = line.strip().split()
                 break
     return os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, "youtube_videos", metadata[1] + '.mp4'), metadata[2], metadata[3]
+
+
+def plot_landmarks(frame, landmarks):
+    frame = np.array(frame)
+    for (x, y) in landmarks:
+        cv2.circle(frame, (int(x), int(y)), 1, (0, 0, 255), -1)
+    plt.imshow(frame)
+    plt.show()
+
+
+def unrotate_lip_landmarks(lip_landmarks):
+    # lip_landmarks = list(lip_landmarks)
+    angle_rotated_by = math.atan((lip_landmarks[6][1] - lip_landmarks[0][1])/(lip_landmarks[6][0] - lip_landmarks[0][0]))
+    rotated_lip_landmarks = rotate_points(lip_landmarks, lip_landmarks[0], -angle_rotated_by)
+    return rotated_lip_landmarks, lip_landmarks[0], angle_rotated_by
+
+
+def rotate_points(points, origin, angle):
+    """
+    Rotate a point counterclockwise by a given angle around a given origin.
+    The angle should be given in radians.
+    """
+    # When the points are row matrices, R is:
+    R = np.array([[math.cos(angle), math.sin(angle)], [-math.sin(angle), math.cos(angle)]])
+    return origin + np.dot(points-origin, R)
+
+
+def normalize_lip_landmarks(lip_landmarks):
+    ur, uc = lip_landmarks[0]
+    sr, sc = lip_landmarks[:, 0].max() - lip_landmarks[:, 0].min(), lip_landmarks[:, 1].max() - lip_landmarks[:, 1].min()
+    return (lip_landmarks - [ur, uc])/[sr, sc], ur, uc, sr, sc
+
+
+def unnormalize_lip_landmarks(lip_landmarks, ur, uc, sr, sc):
+    return lip_landmarks * [sr, sc] + [ur, uc]
 
 
 def unrotate_lip_landmarks_point_by_point(lip_landmarks):

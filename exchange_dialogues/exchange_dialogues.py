@@ -1,4 +1,5 @@
 import argparse
+import sys
 
 from exchange_dialogues_params import *
 from exchange_dialogues_functions import *
@@ -26,11 +27,18 @@ if __name__ == '__main__':
     # video2_language, video2_actor, video2_number = "telugu", "Mahesh_Babu", 89
 
     # Load generator
-    generator_model = load_generator(config.GENERATOR_MODEL_NAME)
+    try:
+        generator_model = load_generator(config.GENERATOR_MODEL_NAME)
+    except ValueError as err:
+        print("\n\n" + str(err) + "\n\n")
+        os._exit(0)
+
+    # Load FaceAlignment object
+    face_alignment_object = load_face_alignment_object()
 
     # Exchange
     try:
-        new_video1, new_video2 = exchange_dialogues(generator_model,
+        new_video1, new_video2 = exchange_dialogues(generator_model, face_alignment_object,
                                                     video1_language=args.video1_language, video1_actor=args.video1_actor, video1_number=args.video1_number,
                                                     video2_language=args.video2_language, video2_actor=args.video2_actor, video2_number=args.video2_number,
                                                     output_dir=args.output_dir, verbose=args.verbose)
