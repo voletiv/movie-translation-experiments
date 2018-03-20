@@ -14,28 +14,22 @@ elif config.USING_DLIB_OR_FACE_ALIGNMENT == 'face_alignment':
 # blacken mouth and draw mouth polygon
 # save combined frame + frame_with_blackened_mouth_and_polygon
 for language in tqdm.tqdm(sorted(os.listdir(os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'metadata')))):
-
     # Read all metadata files in the language,
     # containing the columns: | output_file_name.mp4 | youtubeID | start_time | duration |
     for metadata_txt_file in tqdm.tqdm(sorted(glob.glob(os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'metadata', language, "*")))):
-
         actor = os.path.splitext(os.path.basename(metadata_txt_file))[0]
         print("\n", actor, "\n")
         metadata = read_metadata(metadata_txt_file)
-
         # Extract video clips
         print("Extracting video clips...")
         extract_video_clips(language, actor, metadata, verbose=False)
         video_clips_dir = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'videos', language, actor)
-
         # Extract faces and landmarks from video clips
         print("Extracting faces and landmarks from video clips...")
-        for video_file in tqdm.tqdm(sorted(glob.glob(os.path.join(video_clips_dir, "*.mp4")))):
-
+        for v, video_file in tqdm.tqdm(enumerate(sorted(glob.glob(os.path.join(video_clips_dir, "*.mp4"))))):
             if config.USING_DLIB_OR_FACE_ALIGNMENT == 'dlib':
                 extract_face_frames_and_landmarks_from_video(video_file, config.USING_DLIB_OR_FACE_ALIGNMENT, dlib_detector=dlib_detector, dlib_predictor=dlib_predictor,
                                                              save_with_blackened_mouths_and_polygons=True, save_gif=False, save_landmarks_as_txt=True)
-
             elif config.USING_DLIB_OR_FACE_ALIGNMENT == 'face_alignment':
                 extract_face_frames_and_landmarks_from_video(video_file, config.USING_DLIB_OR_FACE_ALIGNMENT, face_alignment_object=face_alignment_object,
                                                              save_with_blackened_mouths_and_polygons=True, save_gif=False, save_landmarks_as_txt=True)
