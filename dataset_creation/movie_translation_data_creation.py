@@ -1,6 +1,10 @@
 from movie_translation_data_creation_params import *
 from movie_translation_data_creation_functions import *
 
+# Ignore all warnings
+import warnings
+warnings.filterwarnings("ignore")
+
 config = MovieTranslationConfig()
 
 # Load landmarks detector
@@ -27,6 +31,8 @@ for language in tqdm.tqdm(sorted(os.listdir(os.path.join(config.MOVIE_TRANSLATIO
         # Extract faces and landmarks from video clips
         print("Extracting faces and landmarks from video clips...")
         for v, video_file in tqdm.tqdm(enumerate(sorted(glob.glob(os.path.join(video_clips_dir, "*.mp4"))))):
+            # if v < 15:
+            #     continue
             if config.USING_DLIB_OR_FACE_ALIGNMENT == 'dlib':
                 extract_face_frames_and_landmarks_from_video(video_file, config.USING_DLIB_OR_FACE_ALIGNMENT, dlib_detector=dlib_detector, dlib_predictor=dlib_predictor,
                                                              save_with_blackened_mouths_and_polygons=True, save_gif=False, save_landmarks_as_txt=True)
