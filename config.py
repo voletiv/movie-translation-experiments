@@ -7,7 +7,7 @@ class MovieTranslationConfig():
         MOVIE_TRANSLATION_DATASET_DIR = '/home/voletiv/Datasets/MOVIE_TRANSLATION/'
         YOUTUBE_VIDEOS_DIR ='/home/voletiv/Datasets/MOVIE_TRANSLATION/youtube_videos/'
         SHAPE_PREDICTOR_PATH = '/home/voletiv/GitHubRepos/lipreading-in-the-wild-experiments/shape-predictor/shape_predictor_68_face_landmarks.dat'
-        GENERATOR_MODEL_NAME = '/home/voletiv/GitHubRepos/pix2pix/models/DeepLearningImplementations/20180314_152941_Mahesh_Babu_black_mouth_polygons/generator_latest.h5'
+        GENERATOR_MODEL_NAME = '/home/voletiv/GitHubRepos/DeepLearningImplementations/pix2pix/models/20180314_152941_Mahesh_Babu_black_mouth_polygons/generator_latest.h5'
 
     elif 'voleti.vikram' in os.getcwd():
         # voleti.vikram
