@@ -11,7 +11,7 @@ config = MovieTranslationConfig()
 if config.USING_DLIB_OR_FACE_ALIGNMENT == 'dlib':
     dlib_detector, dlib_predictor = load_dlib_detector_and_predictor()
 elif config.USING_DLIB_OR_FACE_ALIGNMENT == 'face_alignment':
-    face_alignment_object = load_face_alignment_object()
+    face_alignment_object = load_face_alignment_object(enable_cuda=config.ENABLE_CUDA)
 
 # Clip videos by dialogue times from metadata,
 # extract faces and landmarks from video clips,
@@ -30,7 +30,7 @@ for language in tqdm.tqdm(sorted(os.listdir(os.path.join(config.MOVIE_TRANSLATIO
         video_clips_dir = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'videos', language, actor)
         # Extract faces and landmarks from video clips
         print("Extracting faces and landmarks from video clips...")
-        for v, video_file in tqdm.tqdm(enumerate(sorted(glob.glob(os.path.join(video_clips_dir, "*.mp4"))))):
+        for v, video_file in enumerate(tqdm.tqdm(sorted(glob.glob(os.path.join(video_clips_dir, "*.mp4"))))):
             # if v < 15:
             #     continue
             if config.USING_DLIB_OR_FACE_ALIGNMENT == 'dlib':
@@ -54,9 +54,9 @@ for language in tqdm.tqdm(sorted(os.listdir(os.path.join(config.MOVIE_TRANSLATIO
  # and save in output_dir
 ######################################
 
-output_dir = '/home/voletiv/GitHubRepos/DeepLearningImplementations/pix2pix/data/Mahesh_Babu_black_mouth_polygons'
 language = 'telugu'
 actor = 'Mahesh_Babu'
+output_dir = os.path.join(PIX2PIX_CODE_DIR, 'data', actor)
 
 output_dir_train = os.path.join(output_dir, 'train')
 output_dir_val = os.path.join(output_dir, 'val')

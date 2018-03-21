@@ -5,20 +5,23 @@ class MovieTranslationConfig():
     if 'voletiv' in os.getcwd():
         # voletiv
         MOVIE_TRANSLATION_DATASET_DIR = '/home/voletiv/Datasets/MOVIE_TRANSLATION/'
+        PIX2PIX_CODE_DIR = '/home/voletiv/GitHubRepos/DeepLearningImplementations/pix2pix/'
         YOUTUBE_VIDEOS_DIR ='/home/voletiv/Datasets/MOVIE_TRANSLATION/youtube_videos/'
         SHAPE_PREDICTOR_PATH = '/home/voletiv/GitHubRepos/lipreading-in-the-wild-experiments/shape-predictor/shape_predictor_68_face_landmarks.dat'
-        GENERATOR_MODEL_NAME = '/home/voletiv/GitHubRepos/DeepLearningImplementations/pix2pix/models/20180314_152941_Mahesh_Babu_black_mouth_polygons/generator_latest.h5'
 
     elif 'voleti.vikram' in os.getcwd():
         # voleti.vikram
         MOVIE_TRANSLATION_DATASET_DIR = '/shared/fusor/home/voleti.vikram/MOVIE_TRANSLATION/'
+        PIX2PIX_CODE_DIR = '/shared/fusor/home/voleti.vikram/DeepLearningImplementations/pix2pix/'
         YOUTUBE_VIDEOS_DIR ='/shared/fusor/home/voleti.vikram/MOVIE_TRANSLATION/youtube_videos/'
         SHAPE_PREDICTOR_PATH = '/shared/fusor/home/voleti.vikram/shape_predictor_68_face_landmarks.dat'
-        GENERATOR_MODEL_NAME = '/shared/fusor/home/voleti.vikram/DeepLearningImplementations/pix2pix/models/20180314_152941_Mahesh_Babu_black_mouth_polygons/generator_latest.h5'
+
+    GENERATOR_MODEL_NAME = os.path.join(PIX2PIX_CODE_DIR, 'models/20180314_152941_Mahesh_Babu_black_mouth_polygons/generator_latest.h5')
 
     # To use 'dlib' or 'face_alignment' for landmark detection
     # Check https://github.com/1adrianb/face-alignment for 'face_alignment' installation instructions
     USING_DLIB_OR_FACE_ALIGNMENT = 'face_alignment'
+    ENABLE_CUDA = True
 
 
 # youtube_videos

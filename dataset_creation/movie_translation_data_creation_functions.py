@@ -31,10 +31,15 @@ def load_dlib_detector_and_predictor(verbose=False):
             config.SHAPE_PREDICTOR_PATH, "(load_detector_and_predictor)\n\n")
 
 
-def load_face_alignment_object():
+def load_face_alignment_object(enable_cuda=False, flip_input=False, use_cnn_face_detector=False, verbose=False):
     # Check https://github.com/1adrianb/face-alignment for installation instructions
+    if verbose:
+        print("Loading FaceAlignment object ...")
     import face_alignment
-    return face_alignment.FaceAlignment(face_alignment.LandmarksType._3D, enable_cuda=True, flip_input=False, use_cnn_face_detector=False)
+    return face_alignment.FaceAlignment(face_alignment.LandmarksType._3D,
+                                        enable_cuda=enable_cuda,
+                                        flip_input=flip_input,
+                                        use_cnn_face_detector=use_cnn_face_detector)
 
 
 def read_metadata(metadata_txt_file):
