@@ -56,7 +56,7 @@ for language in tqdm.tqdm(sorted(os.listdir(os.path.join(config.MOVIE_TRANSLATIO
 
 language = 'telugu'
 actor = 'Mahesh_Babu'
-output_dir = os.path.join(PIX2PIX_CODE_DIR, 'data', actor)
+output_dir = os.path.join(config.PIX2PIX_CODE_DIR, 'data', actor)
 
 output_dir_train = os.path.join(output_dir, 'train')
 output_dir_val = os.path.join(output_dir, 'val')

@@ -454,7 +454,7 @@ def plot_lip_landmarks(lip_landmarks, frame=None, video=False):
     else:
         frame = np.array(frame)
     for l, lip_landmark in enumerate(lip_landmarks):
-        frame[int(lip_landmark[1])-2:int(lip_landmark[1])+2, int(lip_landmark[0])-2:int(lip_landmark[0])+2] = 1
+        frame[int(lip_landmark[1]-2):int(lip_landmark[1]+2), int(lip_landmark[0]-2):int(lip_landmark[0]+2)] = 1
         ax.imshow(frame)
         if video:
             ax.set_title(str(l))
