@@ -16,11 +16,13 @@ from movie_translation_data_creation_functions import *
 config = MovieTranslationConfig()
 
 
-def load_generator(model_path):
+def load_generator(model_path, verbose=False):
     if not os.path.exists(model_path):
         raise ValueError("[ERROR] model path does not exist! Given:", model_path)
 
     from keras.models import load_model
+    if verbose:
+        print("Loading model", model_path, "...")
     return load_model(model_path)
 
 
@@ -102,19 +104,32 @@ def exchange_dialogues(generator_model, face_alignment_object,
                 print("[ERROR]: Could not find", os.path.join(video2_frames_dir, video2_frame_name), "--- [SOLUTION] Retaining previous frame and landmarks")
                 video2_landmarks[video2_frame_numbers[i]] = video2_landmarks[video2_frame_numbers[i-1]]
         else:
-            video2_frame = None
+            video2_frame = video1_frame
 
         # Get the landmarks
-        video1_frame_landmarks = np.array(video1_landmarks[video1_frame_numbers[i]][1:])
+        video1_frame_landmarks = np.array(video1_landmarks[video1_frame_numbers[i]][1:])[:, :2]
         if process_video2:
-            video2_frame_landmarks = np.array(video2_landmarks[video2_frame_numbers[i]][1:])
+            video2_frame_landmarks = np.array(video2_landmarks[video2_frame_numbers[i]][1:])[:, :2]
         else:
-            video2_landmarks = None
+            video2_frame_landmarks = video1_frame_landmarks
+
+        # Saving some default previous landmarks
+        if i == 0:
+            prev_new_video1_frame_landmarks = video1_frame_landmarks
+            prev_new_video2_frame_landmarks = video2_frame_landmarks
 
         # Exchange landmarks
         new_video1_frame_landmarks, new_video2_frame_landmarks = exchange_landmarks(face_alignment_object,
                                                                                     video1_frame, video1_frame_landmarks,
-                                                                                    video2_frame, video2_frame_landmarks)
+                                                                                    video2_frame, video2_frame_landmarks,
+                                                                                    process_video2)
+
+        # If landmarks are not detected in the new frames, save as old frame's landmarks
+        if new_video1_frame_landmarks is None:
+            new_video1_frame_landmarks = prev_new_video1_frame_landmarks
+        if process_video2:
+            if new_video2_frame_landmarks is None:
+                new_video2_frame_landmarks = prev_new_video2_frame_landmarks
 
         # Make frames with black mouth and polygon of landmarks
         video1_frame_with_black_mouth_and_video2_lip_polygons = make_black_mouth_and_lips_polygons(video1_frame, new_video1_frame_landmarks[48:68])
@@ -130,6 +145,10 @@ def exchange_dialogues(generator_model, face_alignment_object,
         video1_frames_with_black_mouth_and_video2_lip_polygons.append(video1_frame_with_black_mouth_and_video2_lip_polygons_resized)
         if process_video2:
             video2_frames_with_black_mouth_and_video1_lip_polygons.append(video2_frame_with_black_mouth_and_video1_lip_polygons_resized)
+
+        # Saving prev_new_video_frame_landmarks
+        prev_new_video1_frame_landmarks = new_video1_frame_landmarks
+        prev_new_video2_frame_landmarks = new_video2_frame_landmarks
 
     # Save black mouth polygons as mp4 with audio
     new_video1_file_name = video1_language + '_' + video1_actor + '_%04d' % video1_number + '_with_audio_of_' + video2_language + '_' + video2_actor + '_%04d' % video2_number + '_black_mouth_polygons.mp4'
@@ -192,31 +211,44 @@ def read_landmarks(language, actor, number):
         return read_landmarks_list_from_txt(landmarks_file)
 
 
-def exchange_landmarks(face_alignment_object, video1_frame, video1_frame_lip_landmarks, video2_frame=None, video2_frame_lip_landmarks=None):
+def exchange_landmarks(face_alignment_object, video1_frame, video1_frame_landmarks, video2_frame, video2_frame_landmarks, process_video2=True):
 
-    # 1 -> 2
-    # Warp 1 to match 2's landmarks using Homography
-    video1_frame_warped_to_2 = find_homography_wraped_image(video1_frame, video1_frame_lip_landmarks[:36, :2],
-                                                            video2_frame_lip_landmarks[:36, :2], img_size=video2_frame.shape[:2])
+    _, video1_lip_landmarks_ur, video1_lip_landmarks_uc, video1_lip_landmarks_sr, video1_lip_landmarks_sc = normalize_lip_landmarks(video1_frame_landmarks[48:68, :2])
+    _, video1_lip_landmarks_ur, video2_lip_landmarks_uc, video2_lip_landmarks_sr, video2_lip_landmarks_sc = normalize_lip_landmarks(video2_frame_landmarks[48:68, :2])
+
+    # New video1 landmarks: landmarks of 2 -> landmarks of 1
+    # Warp 2 to match 1's landmarks using Homography
+    video2_frame_warped_to_1 = find_homography_warped_image(video2_frame, video2_frame_landmarks[:36, :2],
+                                                            video1_frame_landmarks[:36, :2], image_size=video1_frame.shape[:2])
     # Get the warped image's landmarks
-    new_video1_frame_landmarks = get_landmarks_using_FaceAlignment(video1_frame_warped_to_2, face_alignment_object)
+    new_video1_frame_landmarks = get_landmarks_using_FaceAlignment(video2_frame_warped_to_1, face_alignment_object)
+    # Align new lip landmarks with old lip landmarks' position adn scale
+    if new_video1_frame_landmarks is not None:
+        new_video1_lip_landmarks = unnormalize_lip_landmarks(normalize_lip_landmarks(new_video1_frame_landmarks[48:68, :2]),
+                                                             video1_lip_landmarks_ur, video1_lip_landmarks_uc,
+                                                             video1_lip_landmarks_sr, video1_lip_landmarks_sc)
 
-    # 2 -> 1
-    if video2_frame is not None and video2_frame_lip_landmarks is not None:
-        # Warp 2 to match 1's landmarks using Homography
-        video2_frame_warped_to_1 = find_homography_wraped_image(video2_frame, video2_frame_lip_landmarks[:36, :2],
-                                                                video1_frame_lip_landmarks[:36, :2], img_size=video1_frame.shape[:2])
+    # New video2 landmarks: landmarks of 1 -> landmarks of 2
+    if process_video2:
+        # Warp 1 to match 2's landmarks using Homography
+        video1_frame_warped_to_2 = find_homography_warped_image(video1_frame, video1_frame_landmarks[:36, :2],
+                                                                video2_frame_landmarks[:36, :2], image_size=video2_frame.shape[:2])
         # Get the warped image's landmarks
-        new_video2_frame_landmarks = get_landmarks_using_FaceAlignment(video2_frame_warped_to_1, face_alignment_object)
+        new_video2_frame_landmarks = get_landmarks_using_FaceAlignment(video1_frame_warped_to_2, face_alignment_object)
+        # Align new lip landmarks with old lip landmarks' position adn scale
+        if new_video2_frame_landmarks is not None:
+            new_video2_lip_landmarks = unnormalize_lip_landmarks(normalize_lip_landmarks(new_video2_frame_landmarks[48:68, :2]),
+                                                                 video2_lip_landmarks_ur, video2_lip_landmarks_uc,
+                                                                 video2_lip_landmarks_sr, video2_lip_landmarks_sc)
     else:
         new_video2_frame_landmarks = None
 
     return new_video1_frame_landmarks, new_video2_frame_landmarks
 
 
-def find_homography_warped_image(src_image, src_points, dst_points, img_size=(224, 224)):
+def find_homography_warped_image(src_image, src_points, dst_points, image_size=(224, 224)):
     M, _ = cv2.findHomography(src_points, dst_points)
-    warped_image = cv2.warpPerspective(src_img, M, img_size)
+    warped_image = cv2.warpPerspective(src_image, M, image_size)
     return warped_image
 
 

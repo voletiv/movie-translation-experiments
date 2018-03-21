@@ -1,5 +1,5 @@
 import argparse
-import sys
+import os
 
 from exchange_dialogues_params import *
 from exchange_dialogues_functions import *
@@ -18,6 +18,7 @@ if __name__ == '__main__':
     parser.add_argument('video2_number', type=int, help="video2_number: eg. '89'")
     parser.add_argument('--output_dir', '-o', type=str, default=os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'exchanged_videos'),
                         help="output_dir to save the videos in: def: '<path/to/MOVIE_TRANSLATION>/exchanged_videos'")
+    parser.add_argument('-c', '--enable_cuda_for_face_aligment', action="store_true", help="enable cuda for face aligment (DON'T, if using a generator_model, which you usually would!)")
     parser.add_argument('--verbose', '-v', action="store_true", help="video2_number: eg. '89'")
 
     args = parser.parse_args()
@@ -28,13 +29,13 @@ if __name__ == '__main__':
 
     # Load generator
     try:
-        generator_model = load_generator(config.GENERATOR_MODEL_NAME)
+        generator_model = load_generator(config.GENERATOR_MODEL_NAME, verbose=args.verbose)
     except ValueError as err:
         print("\n\n" + str(err) + "\n\n")
         os._exit(0)
 
     # Load FaceAlignment object
-    face_alignment_object = load_face_alignment_object()
+    face_alignment_object = load_face_alignment_object(enable_cuda=args.enable_cuda_for_face_aligment, verbose=args.verbose)
 
     # Exchange
     try:
