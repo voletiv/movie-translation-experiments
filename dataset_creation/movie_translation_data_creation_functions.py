@@ -85,7 +85,9 @@ def extract_video_clips(language, actor, metadata, youtube_videos_dir=os.path.jo
 
 def extract_face_frames_and_landmarks_from_video(video_file, using_dlib_or_face_alignment,
                                                  dlib_detector=None, dlib_predictor=None, face_alignment_object=None,
-                                                 save_with_blackened_mouths_and_polygons=True, save_gif=False,
+                                                 crop_expanded_face_square=True,
+                                                 save_with_blackened_mouths_and_polygons=True,
+                                                 save_gif=False,
                                                  save_landmarks_as_txt=True, save_landmarks_as_csv=False,
                                                  verbose=False):
     '''
@@ -155,8 +157,10 @@ def extract_face_frames_and_landmarks_from_video(video_file, using_dlib_or_face_
         if landmarks is not None:
 
             # Crop 1.5x face, resize to 224x224, note new landmark locations
-            face_square_expanded_resized, landmarks_in_face_square_expanded_resized = square_expand_resize_face_and_modify_landmarks(frame, landmarks)
-
+            if crop_expanded_face_square:
+                face_square_expanded_resized, landmarks_in_face_square_expanded_resized = square_expand_resize_face_and_modify_landmarks(frame, landmarks)
+            else:
+                face_square_expanded_resized = 
             if save_gif:
                 faces_list.append(face_square_expanded_resized)
 
@@ -244,19 +248,23 @@ def make_black_mouth_and_lips_polygons(frame, mouth_landmarks):
         return frame_with_blackened_mouth_and_lip_polygons
 
 
-def square_expand_resize_face_and_modify_landmarks(frame, landmarks):
+def square_expand_resize_face_and_modify_landmarks(frame, landmarks, face_square_expanded_resized=True):
 
     # Get face bounding box from landmarks
     # dlib.rectangle = left, top, right, bottom
-    # face_rect = dlib.rectangle(int(np.min(landmarks[:, 0])), int(np.min(landmarks[:, 1])), int(np.max(landmarks[:, 0])), int(np.max(landmarks[:, 1])))
-    face_rect = [int(np.min(landmarks[:, 0])), int(np.min(landmarks[:, 1])), int(np.max(landmarks[:, 0])), int(np.max(landmarks[:, 1]))]
+    if face_square_expanded_resized:
+        # face_rect = dlib.rectangle(int(np.min(landmarks[:, 0])), int(np.min(landmarks[:, 1])), int(np.max(landmarks[:, 0])), int(np.max(landmarks[:, 1])))
+        face_rect = [int(np.min(landmarks[:, 0])), int(np.min(landmarks[:, 1])), int(np.max(landmarks[:, 0])), int(np.max(landmarks[:, 1]))]
 
-    # Make face bounding box square to the greater of width and height
-    face_rect_square = make_rect_shape_square(face_rect)
+        # Make face bounding box square to the greater of width and height
+        face_rect_square = make_rect_shape_square(face_rect)
 
-    # Expand face bounding box to 1.5x
-    face_rect_square_expanded = expand_rect(face_rect_square, scale=1.5, frame_shape=(frame.shape[0], frame.shape[1]))
+        # Expand face bounding box to 1.5x
+        face_rect_square_expanded = expand_rect(face_rect_square, scale=1.5, frame_shape=(frame.shape[0], frame.shape[1]))
 
+    else:
+        face_rect_square_expanded = [0, 0, frame.shape[1], frame.shape[0]]
+    
     # Resize frame[face_bounding_box] to 224x224
     face_square_expanded = frame[face_rect_square_expanded[1]:face_rect_square_expanded[3], face_rect_square_expanded[0]:face_rect_square_expanded[2]]
     face_square_expanded_resized = np.round(resize(face_square_expanded, (224, 224), preserve_range=True)).astype('uint8')
