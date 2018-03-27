@@ -157,10 +157,10 @@ def extract_face_frames_and_landmarks_from_video(video_file, using_dlib_or_face_
         if landmarks is not None:
 
             # Crop 1.5x face, resize to 224x224, note new landmark locations
-            if crop_expanded_face_square:
-                face_square_expanded_resized, landmarks_in_face_square_expanded_resized = square_expand_resize_face_and_modify_landmarks(frame, landmarks)
-            else:
-                face_square_expanded_resized = 
+            face_square_expanded_resized, landmarks_in_face_square_expanded_resized = square_expand_resize_face_and_modify_landmarks(frame,
+                                                                                                                                     landmarks,
+                                                                                                                                     crop_expanded_face_square)
+
             if save_gif:
                 faces_list.append(face_square_expanded_resized)
 
