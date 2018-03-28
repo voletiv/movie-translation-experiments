@@ -26,10 +26,21 @@ def load_generator(model_path, verbose=False):
     return load_model(model_path)
 
 
-def exchange_dialogues(generator_model, face_alignment_object,
+def exchange_dialogues(generator_model, using_dlib_or_face_alignment,
+                       dlib_detector=None, dlib_predictor=None, face_alignment_object=None,
                        video1_language="telugu", video1_actor="Mahesh_Babu", video1_number=47,
                        video2_language="telugu", video2_actor="Mahesh_Babu", video2_number=89,
                        output_dir='.', verbose=False):
+
+    if using_dlib_or_face_alignment == 'dlib':
+        if dlib_detector is None or dlib_predictor is None:
+            print("\n\n[ERROR] Please provide dlib_detector and dlib_predictor! (Since you have chosen the option of 'dlib' in 'using_dlib_or_face_alignment')\n\n")
+            return
+
+    elif using_dlib_or_face_alignment == 'face_alignment':
+        if face_alignment_object is None:
+            print("\n\n[ERROR] Please provide face_alignment_object! (Since you have chosen the option of 'face_alignment' in 'using_dlib_or_face_alignment')\n\n")
+            return
 
     # Generator model input shape
     _, generator_model_input_rows, generator_model_input_cols, _ = generator_model.layers[0].input_shape
@@ -119,10 +130,11 @@ def exchange_dialogues(generator_model, face_alignment_object,
             prev_new_video2_lip_landmarks = video2_frame_landmarks[48:68, :2]
 
         # Exchange landmarks
-        new_video1_lip_landmarks, new_video2_lip_landmarks = exchange_lip_landmarks(face_alignment_object,
-                                                                                        video1_frame, video1_frame_landmarks,
-                                                                                        video2_frame, video2_frame_landmarks,
-                                                                                        process_video2, verbose)
+        new_video1_lip_landmarks, new_video2_lip_landmarks = exchange_lip_landmarks(video1_frame, video1_frame_landmarks,
+                                                                                    video2_frame, video2_frame_landmarks,
+                                                                                    using_dlib_or_face_alignment,
+                                                                                    dlib_detector, dlib_predictor, face_alignment_object,
+                                                                                    process_video2, verbose)
 
         # If landmarks are not detected in the new frames, save as old frame's landmarks
         if new_video1_lip_landmarks is None:
@@ -212,9 +224,10 @@ def read_landmarks(language, actor, number):
         return read_landmarks_list_from_txt(landmarks_file)
 
 
-def exchange_lip_landmarks(face_alignment_object,
-                           video1_frame, video1_frame_landmarks,
+def exchange_lip_landmarks(video1_frame, video1_frame_landmarks,
                            video2_frame, video2_frame_landmarks,
+                           using_dlib_or_face_alignment,
+                           dlib_detector=None, dlib_predictor=None, face_alignment_object=None,
                            process_video2=True, verbose=False):
     '''
     Exchange the landmarks of the two frames, and return the respective lip landmarks
@@ -225,6 +238,17 @@ def exchange_lip_landmarks(face_alignment_object,
     OUTPUTS:
     new_video1_lip_landmarks, new_video2_lip_landmarks
     '''
+
+    if using_dlib_or_face_alignment == 'dlib':
+        if dlib_detector is None or dlib_predictor is None:
+            print("\n\n[ERROR] Please provide dlib_detector and dlib_predictor! (Since you have chosen the option of 'dlib' in 'using_dlib_or_face_alignment')\n\n")
+            return
+
+    elif using_dlib_or_face_alignment == 'face_alignment':
+        if face_alignment_object is None:
+            print("\n\n[ERROR] Please provide face_alignment_object! (Since you have chosen the option of 'face_alignment' in 'using_dlib_or_face_alignment')\n\n")
+            return
+
     _, video1_lip_landmarks_ur, video1_lip_landmarks_uc, video1_lip_landmarks_sr, video1_lip_landmarks_sc = normalize_lip_landmarks(video1_frame_landmarks[48:68, :2])
     _, video2_lip_landmarks_ur, video2_lip_landmarks_uc, video2_lip_landmarks_sr, video2_lip_landmarks_sc = normalize_lip_landmarks(video2_frame_landmarks[48:68, :2])
 
@@ -239,7 +263,10 @@ def exchange_lip_landmarks(face_alignment_object,
     # Get the warped image's landmarks
     if verbose:
         print("exchange_landmarks: finding new_video1_frame_landmarks of video2_frame_warped_to_1...")
-    new_video1_frame_landmarks = get_landmarks_using_FaceAlignment(video2_frame_warped_to_1, face_alignment_object)
+    if using_dlib_or_face_alignment == 'dlib':
+        new_video1_frame_landmarks = get_landmarks_using_dlib_detector_and_predictor(video2_frame_warped_to_1, dlib_detector, dlib_predictor)
+    elif using_dlib_or_face_alignment == 'face_alignment':
+        new_video1_frame_landmarks = get_landmarks_using_FaceAlignment(video2_frame_warped_to_1, face_alignment_object)
 
     # Align new lip landmarks with old lip landmarks' position adn scale
     if new_video1_frame_landmarks is not None:
@@ -250,6 +277,7 @@ def exchange_lip_landmarks(face_alignment_object,
                                                                       video1_lip_landmarks_sr, video1_lip_landmarks_sc)).astype(int)
     else:
         print("exchange_landmarks: video2_frame_warped_to_1 has no landmarks!")
+        new_video1_lip_landmarks = None
 
     # New video2 landmarks: landmarks of 1 -> landmarks of 2
     if process_video2:
@@ -263,7 +291,10 @@ def exchange_lip_landmarks(face_alignment_object,
         # Get the warped image's landmarks
         if verbose:
             print("exchange_landmarks: finding new_video2_frame_landmarks of video1_frame_warped_to_2...")
-        new_video2_frame_landmarks = get_landmarks_using_FaceAlignment(video1_frame_warped_to_2, face_alignment_object)
+        if using_dlib_or_face_alignment == 'dlib':
+            new_video2_frame_landmarks = get_landmarks_using_dlib_detector_and_predictor(video1_frame_warped_to_2, dlib_detector, dlib_predictor)
+        elif using_dlib_or_face_alignment == 'face_alignment':
+            new_video2_frame_landmarks = get_landmarks_using_FaceAlignment(video1_frame_warped_to_2, face_alignment_object)
 
         # Align new lip landmarks with old lip landmarks' position adn scale
         if new_video2_frame_landmarks is not None:
@@ -274,6 +305,7 @@ def exchange_lip_landmarks(face_alignment_object,
                                                                           video2_lip_landmarks_sr, video2_lip_landmarks_sc)).astype(int)
         else:
             print("exchange_landmarks: video1_frame_warped_to_2 has no landmarks!")
+            new_video2_lip_landmarks = None
 
     else:
         new_video2_lip_landmarks = None

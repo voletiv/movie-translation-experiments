@@ -94,6 +94,3 @@ for frame in tqdm.tqdm(all_frames[train_set_len:(train_set_len + val_set_len)]):
 for frame in tqdm.tqdm(all_frames[(train_set_len + val_set_len):(train_set_len + val_set_len + test_set_len)]):
     a = subprocess.call(['cp', frame, output_dir_test])
 
-
-
-
