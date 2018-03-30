@@ -37,6 +37,7 @@ if __name__ == '__main__':
         print("\n\n" + str(err) + "\n\n")
         os._exit(0)
 
+    '''
     # Load landmarks detector
     if args.using_dlib_or_face_alignment == 'dlib':
         dlib_detector, dlib_predictor = load_dlib_detector_and_predictor()
@@ -44,11 +45,12 @@ if __name__ == '__main__':
     elif args.using_dlib_or_face_alignment == 'face_alignment':
         face_alignment_object = load_face_alignment_object(enable_cuda=args.enable_cuda_for_face_aligment, verbose=args.verbose)
         dlib_detector, dlib_predictor = None, None
+    '''
 
     # Exchange
     try:
-        new_video1, new_video2 = exchange_dialogues(generator_model, args.using_dlib_or_face_alignment,
-                                                    dlib_detector, dlib_predictor, face_alignment_object,
+        new_video1, new_video2 = exchange_dialogues(generator_model,
+                                                    # args.using_dlib_or_face_alignment, dlib_detector, dlib_predictor, face_alignment_object,
                                                     video1_language=args.video1_language, video1_actor=args.video1_actor, video1_number=args.video1_number,
                                                     video2_language=args.video2_language, video2_actor=args.video2_actor, video2_number=args.video2_number,
                                                     output_dir=args.output_dir, verbose=args.verbose)
