@@ -26,33 +26,44 @@ def load_generator(model_path, verbose=False):
     return load_model(model_path)
 
 
-def exchange_dialogues(generator_model, using_dlib_or_face_alignment,
-                       dlib_detector=None, dlib_predictor=None, face_alignment_object=None,
+def exchange_dialogues(generator_model,
+                       # using_dlib_or_face_alignment, dlib_detector=None, dlib_predictor=None, face_alignment_object=None,
                        video1_language="telugu", video1_actor="Mahesh_Babu", video1_number=47,
                        video2_language="telugu", video2_actor="Mahesh_Babu", video2_number=89,
                        output_dir='.', verbose=False):
 
-    if using_dlib_or_face_alignment == 'dlib':
-        if dlib_detector is None or dlib_predictor is None:
-            print("\n\n[ERROR] Please provide dlib_detector and dlib_predictor! (Since you have chosen the option of 'dlib' in 'using_dlib_or_face_alignment')\n\n")
-            return
+    # dlib or face_alignment is required only is warping lip landmarks using homography - omitted! I now use Affine 3D Tx
 
-    elif using_dlib_or_face_alignment == 'face_alignment':
-        if face_alignment_object is None:
-            print("\n\n[ERROR] Please provide face_alignment_object! (Since you have chosen the option of 'face_alignment' in 'using_dlib_or_face_alignment')\n\n")
-            return
+    # if using_dlib_or_face_alignment == 'dlib':
+    #     if dlib_detector is None or dlib_predictor is None:
+    #         print("\n\n[ERROR] Please provide dlib_detector and dlib_predictor! (Since you have chosen the option of 'dlib' in 'using_dlib_or_face_alignment')\n\n")
+    #         return
+
+    # elif using_dlib_or_face_alignment == 'face_alignment':
+    #     if face_alignment_object is None:
+    #         print("\n\n[ERROR] Please provide face_alignment_object! (Since you have chosen the option of 'face_alignment' in 'using_dlib_or_face_alignment')\n\n")
+    #         return
 
     # Generator model input shape
     _, generator_model_input_rows, generator_model_input_cols, _ = generator_model.layers[0].input_shape
 
-    # Video 1
+    # Video 1 frames and landmarks
     if verbose:
         print("Getting video1 dir and landmarks")
     try:
         video1_frames_dir = get_video_frames_dir(video1_language, video1_actor, video1_number)
-        video1_landmarks = read_landmarks(video1_language, video1_actor, video1_number)
+        
+        # Read 2D landmarks detected using dlib (dlib.net)
+        video1_2D_dlib_landmarks = read_landmarks(video1_language, video1_actor, video1_number, '2D_dlib')
+        
+       # Read 3D landmarks detected using face_alignment trained on LS3D-W (https://github.com/1adrianb/face-alignment)
+        video1_3D_LS3D_landmarks = read_landmarks(video1_language, video1_actor, video1_number, '3D')
+    
     except ValueError as err:
         raise ValueError(err)
+
+    # Make better 3D landmarks by combining 2D landmarks from dlib with the z values from 3D landmarks using LS3D
+    video1
 
     video1_length = len(video1_landmarks)
 
@@ -104,7 +115,10 @@ def exchange_dialogues(generator_model, using_dlib_or_face_alignment,
             video1_frame = cv2.cvtColor(cv2.imread(os.path.join(video1_frames_dir, video1_frame_name)), cv2.COLOR_BGR2RGB)
         except:
             print("[ERROR]: Could not find", os.path.join(video1_frames_dir, video1_frame_name), "--- [SOLUTION] Retaining previous frame and landmarks")
-            video1_landmarks[video1_frame_numbers[i]] = video1_landmarks[video1_frame_numbers[i-1]]
+            # Frame was not saved => landmarks were not detected
+            # Retain prev video1_frame, save prev landmarks as this frame's landmarks
+            video1_2D_landmarks[video1_frame_numbers[i]] = video1_2D_landmarks[video1_frame_numbers[i-1]]
+            video1_3D_landmarks[video1_frame_numbers[i]] = video1_3D_landmarks[video1_frame_numbers[i-1]]
 
         if process_video2:
             # Read video2 frame
@@ -113,35 +127,47 @@ def exchange_dialogues(generator_model, using_dlib_or_face_alignment,
                 video2_frame = cv2.cvtColor(cv2.imread(os.path.join(video2_frames_dir, video2_frame_name)), cv2.COLOR_BGR2RGB)
             except:
                 print("[ERROR]: Could not find", os.path.join(video2_frames_dir, video2_frame_name), "--- [SOLUTION] Retaining previous frame and landmarks")
-                video2_landmarks[video2_frame_numbers[i]] = video2_landmarks[video2_frame_numbers[i-1]]
+                # Frame was not saved => landmarks were not detected
+                # Retain prev video2_frame, save prev landmarks as this frame's landmarks
+                video2_2D_landmarks[video2_frame_numbers[i]] = video2_2D_landmarks[video2_frame_numbers[i-1]]
+                video2_3D_landmarks[video2_frame_numbers[i]] = video2_3D_landmarks[video2_frame_numbers[i-1]]
         else:
             video2_frame = video1_frame
 
-        # Get the landmarks
-        video1_frame_landmarks = np.array(video1_landmarks[video1_frame_numbers[i]][1:])[:, :2]
+        # Get the frame's landmarks
+        # Make 3D landmarks as x,y from dlib, and z from LS3D face-alignment
+        video1_frame_3D_landmarks = np.hstack(( np.array(video1_2D_landmarks[video1_frame_numbers[i]][1:])[:, :2],
+                                                np.array(video1_3D_landmarks[video1_frame_numbers[i]][1:])[:, 2].reshape(68, 1) ))
         if process_video2:
-            video2_frame_landmarks = np.array(video2_landmarks[video2_frame_numbers[i]][1:])[:, :2]
+            video2_frame_3D_landmarks = np.hstack(( np.array(video2_2D_landmarks[video2_frame_numbers[i]][1:])[:, :2],
+                                                    np.array(video2_3D_landmarks[video2_frame_numbers[i]][1:])[:, 2].reshape(68, 1) ))
         else:
-            video2_frame_landmarks = video1_frame_landmarks
+            video2_frame_3D_landmarks = video1_frame_3D_landmarks
 
         # Saving some default previous landmarks
         if i == 0:
-            prev_new_video1_lip_landmarks = video1_frame_landmarks[48:68, :2]
-            prev_new_video2_lip_landmarks = video2_frame_landmarks[48:68, :2]
+            prev_new_video1_lip_landmarks = video1_frame_3D_landmarks[48:68, :2]
+            prev_new_video2_lip_landmarks = video2_frame_3D_landmarks[48:68, :2]
 
         # Exchange landmarks
-        new_video1_lip_landmarks, new_video2_lip_landmarks = exchange_lip_landmarks(video1_frame, video1_frame_landmarks,
-                                                                                    video2_frame, video2_frame_landmarks,
-                                                                                    using_dlib_or_face_alignment,
-                                                                                    dlib_detector, dlib_predictor, face_alignment_object,
-                                                                                    process_video2, verbose)
+        # new_video1_lip_landmarks, new_video2_lip_landmarks = exchange_lip_landmarks_using_homography(video1_frame, video1_frame_landmarks,
+        #                                                                                              video2_frame, video2_frame_landmarks,
+        #                                                                                              using_dlib_or_face_alignment,
+        #                                                                                              dlib_detector, dlib_predictor, face_alignment_object,
+        #                                                                                              process_video2, verbose)
+        video1_3D_landmarks_tx_to_2, video2_3D_landmarks_tx_to_1 = exchange_3D_landmarks_using_3D_affine_tx(video1_frame_3D_landmarks, video2_frame_3D_landmarks,
+                                                                                                            process_video2=process_video2, verbose=verbose)
 
         # If landmarks are not detected in the new frames, save as old frame's landmarks
-        if new_video1_lip_landmarks is None:
+        if video1_3D_landmarks_tx_to_2 is None:
             new_video1_lip_landmarks = prev_new_video1_lip_landmarks
+        else:
+            new_video1_lip_landmarks = video2_3D_landmarks_tx_to_1[48:68, :2]
         if process_video2:
-            if new_video2_lip_landmarks is None:
+            if video2_3D_landmarks_tx_to_2 is None:
                 new_video2_lip_landmarks = prev_new_video2_lip_landmarks
+            else:
+                new_video2_lip_landmarks = video1_3D_landmarks_tx_to_2[48:68, :2]
 
         # Make frames with black mouth and polygon of landmarks
         video1_frame_with_black_mouth_and_video2_lip_polygons = make_black_mouth_and_lips_polygons(video1_frame, new_video1_lip_landmarks)
@@ -158,7 +184,7 @@ def exchange_dialogues(generator_model, using_dlib_or_face_alignment,
         if process_video2:
             video2_frames_with_black_mouth_and_video1_lip_polygons.append(video2_frame_with_black_mouth_and_video1_lip_polygons_resized)
 
-        # Saving prev_new_video_frame_landmarks
+        # Save prev_new_video_frame_landmarks
         prev_new_video1_lip_landmarks = new_video1_lip_landmarks
         if process_video2:
             prev_new_video2_lip_landmarks = new_video2_lip_landmarks
@@ -232,13 +258,56 @@ def read_landmarks(language, actor, number, read_2D_dlib_or_3D=''):
         return read_landmarks_list_from_txt(landmarks_file)
 
 
-def exchange_lip_landmarks(video1_frame, video1_frame_landmarks,
-                           video2_frame, video2_frame_landmarks,
-                           using_dlib_or_face_alignment,
-                           dlib_detector=None, dlib_predictor=None, face_alignment_object=None,
-                           process_video2=True, verbose=False):
+def exchange_3D_landmarks_using_3D_affine_tx(video1_frame_3D_landmarks, video2_frame_3D_landmarks,
+                                             process_video2=True, verbose=False):
     '''
-    Exchange the landmarks of the two frames, and return the respective lip landmarks
+    Exchange the landmarks of the two frames - estimate the affine 3D
+    transformations between the 3D landmarks of the two frames (1->2 and 2->1),
+    using only the first 36 landmarks, affine transform each frame's mouth
+    landmarks using the Tx matrices, and return the new lip landmarks
+    Note: Inputs are all 3D facial landmarks, but outputs are only lip landmarks
+    INPUTS:
+    video1_frame, video1_frame_landmarks, video2_frame, video2_frame_landmarks, process_video2
+    face_alignment_object : an object of the FaceAlignment class to find landmarks
+    OUTPUTS:
+    new_video1_lip_landmarks, new_video2_lip_landmarks
+    '''
+
+    # 1 -> 2
+    if verbose:
+        print("Affine 3D Tx 1 -> 2")
+    video1_3D_landmarks_tx_to_2 = affine_3D_tx_facial_landmarks_src_to_dst(video1_frame_3D_landmarks, video2_frame_3D_landmarks)
+
+    # 2 -> 1
+    if process_video2:
+        if verbose:
+            print("Affine 3D Tx 2 -> 1")
+        video2_3D_landmarks_tx_to_1 = affine_3D_tx_facial_landmarks_src_to_dst(video2_frame_3D_landmarks, video1_frame_3D_landmarks)
+    else:
+        video2_3D_landmarks_tx_to_1 = None
+
+    return video1_3D_landmarks_tx_to_2, video2_3D_landmarks_tx_to_1
+
+
+def affine_3D_tx_facial_landmarks_src_to_dst(source_frame_3D_landmarks, target_frame_3D_landmarks):
+    # Estimate Affine 3D transformation between the first 36 landmarks (jaw, eyebrows, eyes, nose bridge, nose base) from source to target
+    retval, Rt_1_to_2, _ = cv2.estimateAffine3D(source_frame_3D_landmarks[:36], target_frame_3D_landmarks[:36])
+    if retval is True:
+        # Get the Affine transformed landmarks
+        source_3D_landmarks_tx_to_target = np.dot( Rt_1_to_2, np.hstack(( source_frame_3D_landmarks, np.ones((68, 1)) )).T ).T
+    else:
+        source_3D_landmarks_tx_to_target = None
+    return source_3D_landmarks_tx_to_target
+    
+
+def exchange_lip_landmarks_using_homography(video1_frame, video1_frame_landmarks,
+                                            video2_frame, video2_frame_landmarks,
+                                            using_dlib_or_face_alignment,
+                                            dlib_detector=None, dlib_predictor=None, face_alignment_object=None,
+                                            process_video2=True, verbose=False):
+    '''
+    Exchange the landmarks of the two frames - warp each frame to the other using homography,
+    and return the respective new lip landmarks by detecting landmarks in each warped image
     Note: Inputs are all facial landmarks, but outputs are only lip landmarks
     INPUTS:
     face_alignment_object : an object of the FaceAlignment class to find landmarks
@@ -276,7 +345,7 @@ def exchange_lip_landmarks(video1_frame, video1_frame_landmarks,
     elif using_dlib_or_face_alignment == 'face_alignment':
         new_video1_frame_landmarks = get_landmarks_using_FaceAlignment(video2_frame_warped_to_1, face_alignment_object)
 
-    # Align new lip landmarks with old lip landmarks' position adn scale
+    # Align new lip landmarks with old lip landmarks' position and scale
     if new_video1_frame_landmarks is not None:
         if verbose:
             print("exchange_landmarks: finding new_video1_lip_landmarks by normalizing and unnormalizing new_video1_frame_landmarks...")
