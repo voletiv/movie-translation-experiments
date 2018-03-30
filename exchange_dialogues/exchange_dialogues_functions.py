@@ -49,7 +49,7 @@ def exchange_dialogues(generator_model,
     except ValueError as err:
         raise ValueError(err)
 
-    video1_length = len(video1_landmarks)
+    video1_length = len(video1_2D_dlib_landmarks)
 
     # Video 2
     if verbose:
@@ -66,7 +66,7 @@ def exchange_dialogues(generator_model,
     except ValueError as err:
         raise ValueError(err)
 
-    video2_length = len(video2_landmarks)
+    video2_length = len(video2_2D_dlib_landmarks)
 
     # Choose the smaller one as the target length, and choose those many central frames
     if verbose:
