@@ -41,10 +41,10 @@ def exchange_dialogues(generator_model,
         video1_frames_dir = get_video_frames_dir(video1_language, video1_actor, video1_number)
         
         # Read 2D landmarks detected using dlib (dlib.net)
-        video1_2D_dlib_landmarks = read_landmarks(video1_language, video1_actor, video1_number, '2D_dlib')
+        video1_2D_landmarks = read_landmarks(video1_language, video1_actor, video1_number, '2D_dlib')
         
        # Read 3D landmarks detected using face_alignment trained on LS3D-W (https://github.com/1adrianb/face-alignment)
-        video1_3D_LS3D_landmarks = read_landmarks(video1_language, video1_actor, video1_number, '3D')
+        video1_3D_landmarks = read_landmarks(video1_language, video1_actor, video1_number, '3D')
     
     except ValueError as err:
         raise ValueError(err)
@@ -58,15 +58,15 @@ def exchange_dialogues(generator_model,
         video2_frames_dir = get_video_frames_dir(video2_language, video2_actor, video2_number)
         
         # Read 2D landmarks detected using dlib (dlib.net)
-        video2_2D_dlib_landmarks = read_landmarks(video2_language, video2_actor, video2_number, '2D_dlib')
+        video2_2D_landmarks = read_landmarks(video2_language, video2_actor, video2_number, '2D_dlib')
 
        # Read 3D landmarks detected using face_alignment trained on LS3D-W (https://github.com/1adrianb/face-alignment)
-        video2_3D_LS3D_landmarks = read_landmarks(video2_language, video2_actor, video2_number, '3D')
+        video2_3D_landmarks = read_landmarks(video2_language, video2_actor, video2_number, '3D')
 
     except ValueError as err:
         raise ValueError(err)
 
-    video2_length = len(video2_2D_dlib_landmarks)
+    video2_length = len(video2_2D_landmarks)
 
     # Choose the smaller one as the target length, and choose those many central frames
     if verbose:
@@ -77,16 +77,16 @@ def exchange_dialogues(generator_model,
         video_length = video1_length
         video1_frame_numbers = np.arange(video_length)
         video2_frame_numbers = np.arange((video2_length//2 - video_length//2), (video2_length//2 - video_length//2 + video_length))
-        video2_2D_dlib_landmarks = video2_2D_dlib_landmarks[(video2_length//2 - video_length//2):(video2_length//2 - video_length//2 + video_length)]
-        video2_3D_LS3D_landmarks = video2_3D_LS3D_landmarks[(video2_length//2 - video_length//2):(video2_length//2 - video_length//2 + video_length)]
+        video2_2D_landmarks = video2_2D_landmarks[(video2_length//2 - video_length//2):(video2_length//2 - video_length//2 + video_length)]
+        video2_3D_landmarks = video2_3D_landmarks[(video2_length//2 - video_length//2):(video2_length//2 - video_length//2 + video_length)]
     else:
         if verbose:
             print("    video2 chosen")
         video_length = video2_length
         video2_frame_numbers = np.arange(video_length)
         video1_frame_numbers = np.arange((video1_length//2 - video_length//2), (video1_length//2 - video_length//2 + video_length))
-        video1_2D_dlib_landmarks = video1_2D_dlib_landmarks[(video1_length//2 - video_length//2):(video1_length//2 - video_length//2 + video_length)]
-        video1_3D_LS3D_landmarks = video1_3D_LS3D_landmarks[(video1_length//2 - video_length//2):(video1_length//2 - video_length//2 + video_length)]
+        video1_2D_landmarks = video1_2D_landmarks[(video1_length//2 - video_length//2):(video1_length//2 - video_length//2 + video_length)]
+        video1_3D_landmarks = video1_3D_landmarks[(video1_length//2 - video_length//2):(video1_length//2 - video_length//2 + video_length)]
 
     # EXCHANGE DIALOGUES
     video1_frames_with_black_mouth_and_video2_lip_polygons = []
