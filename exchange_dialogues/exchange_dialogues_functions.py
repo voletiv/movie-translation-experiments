@@ -216,10 +216,18 @@ def get_video_frames_dir(language, actor, number):
         return frames_dir
 
 
-def read_landmarks(language, actor, number):
-    landmarks_file = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'landmarks', language, actor, actor + '_%04d' % number + "_landmarks.txt")
+def read_landmarks(language, actor, number, read_2D_dlib_or_3D=''):
+    '''
+    language: e.g. 'telugu'
+    actor: e.g. 'Mahesh_Babu'
+    number: e.g. 3
+    read_2D_dlib_or_3D = '' or '2D_dlib' or '3D'
+    '''
+    if read_2D_dlib_or_3D:
+        actor_suffix = '_' + read_2D_dlib_or_3D
+    landmarks_file = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'landmarks', language, actor + actor_suffix, actor + '_%04d' % number + "_landmarks.txt")
     if not os.path.exists(landmarks_file):
-        raiseValueError("[ERROR]: landmarks file", landmarks_file, "does not exist!")
+        raise ValueError("[ERROR] landmarks file does not exist! Given: " + landmarks_file)
     else:
         return read_landmarks_list_from_txt(landmarks_file)
 
