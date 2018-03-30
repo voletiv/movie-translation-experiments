@@ -27,22 +27,9 @@ def load_generator(model_path, verbose=False):
 
 
 def exchange_dialogues(generator_model,
-                       # using_dlib_or_face_alignment, dlib_detector=None, dlib_predictor=None, face_alignment_object=None,
                        video1_language="telugu", video1_actor="Mahesh_Babu", video1_number=47,
                        video2_language="telugu", video2_actor="Mahesh_Babu", video2_number=89,
                        output_dir='.', verbose=False):
-
-    # dlib or face_alignment is required only is warping lip landmarks using homography - omitted! I now use Affine 3D Tx
-
-    # if using_dlib_or_face_alignment == 'dlib':
-    #     if dlib_detector is None or dlib_predictor is None:
-    #         print("\n\n[ERROR] Please provide dlib_detector and dlib_predictor! (Since you have chosen the option of 'dlib' in 'using_dlib_or_face_alignment')\n\n")
-    #         return
-
-    # elif using_dlib_or_face_alignment == 'face_alignment':
-    #     if face_alignment_object is None:
-    #         print("\n\n[ERROR] Please provide face_alignment_object! (Since you have chosen the option of 'face_alignment' in 'using_dlib_or_face_alignment')\n\n")
-    #         return
 
     # Generator model input shape
     _, generator_model_input_rows, generator_model_input_cols, _ = generator_model.layers[0].input_shape
@@ -62,9 +49,6 @@ def exchange_dialogues(generator_model,
     except ValueError as err:
         raise ValueError(err)
 
-    # Make better 3D landmarks by combining 2D landmarks from dlib with the z values from 3D landmarks using LS3D
-    video1
-
     video1_length = len(video1_landmarks)
 
     # Video 2
@@ -72,7 +56,13 @@ def exchange_dialogues(generator_model,
         print("Getting video2 dir and landmarks")
     try:
         video2_frames_dir = get_video_frames_dir(video2_language, video2_actor, video2_number)
-        video2_landmarks = read_landmarks(video2_language, video2_actor, video2_number)
+        
+        # Read 2D landmarks detected using dlib (dlib.net)
+        video2_2D_dlib_landmarks = read_landmarks(video2_language, video2_actor, video2_number, '2D_dlib')
+
+       # Read 3D landmarks detected using face_alignment trained on LS3D-W (https://github.com/1adrianb/face-alignment)
+        video2_3D_LS3D_landmarks = read_landmarks(video2_language, video2_actor, video2_number, '3D')
+
     except ValueError as err:
         raise ValueError(err)
 
@@ -85,16 +75,18 @@ def exchange_dialogues(generator_model,
         if verbose:
             print("    video1 chosen")
         video_length = video1_length
-        video1_frame_numbers = np.arange(video1_length)
-        video2_landmarks = video2_landmarks[(video2_length//2 - video1_length//2):(video2_length//2 - video1_length//2 + video1_length)]
-        video2_frame_numbers = np.arange((video2_length//2 - video1_length//2), (video2_length//2 - video1_length//2 + video1_length))
+        video1_frame_numbers = np.arange(video_length)
+        video2_frame_numbers = np.arange((video2_length//2 - video_length//2), (video2_length//2 - video_length//2 + video_length))
+        video2_2D_dlib_landmarks = video2_2D_dlib_landmarks[(video2_length//2 - video_length//2):(video2_length//2 - video_length//2 + video_length)]
+        video2_3D_LS3D_landmarks = video2_3D_LS3D_landmarks[(video2_length//2 - video_length//2):(video2_length//2 - video_length//2 + video_length)]
     else:
         if verbose:
             print("    video2 chosen")
         video_length = video2_length
-        video1_landmarks = video1_landmarks[(video1_length//2 - video2_length//2):(video1_length//2 - video2_length//2 + video2_length)]
-        video1_frame_numbers = np.arange((video1_length//2 - video2_length//2), (video1_length//2 - video2_length//2 + video2_length))
-        video2_frame_numbers = np.arange(video2_length)
+        video2_frame_numbers = np.arange(video_length)
+        video1_frame_numbers = np.arange((video1_length//2 - video_length//2), (video1_length//2 - video_length//2 + video_length))
+        video1_2D_dlib_landmarks = video1_2D_dlib_landmarks[(video1_length//2 - video_length//2):(video1_length//2 - video_length//2 + video_length)]
+        video1_3D_LS3D_landmarks = video1_3D_LS3D_landmarks[(video1_length//2 - video_length//2):(video1_length//2 - video_length//2 + video_length)]
 
     # EXCHANGE DIALOGUES
     video1_frames_with_black_mouth_and_video2_lip_polygons = []
@@ -150,11 +142,6 @@ def exchange_dialogues(generator_model,
             prev_new_video2_lip_landmarks = video2_frame_3D_landmarks[48:68, :2]
 
         # Exchange landmarks
-        # new_video1_lip_landmarks, new_video2_lip_landmarks = exchange_lip_landmarks_using_homography(video1_frame, video1_frame_landmarks,
-        #                                                                                              video2_frame, video2_frame_landmarks,
-        #                                                                                              using_dlib_or_face_alignment,
-        #                                                                                              dlib_detector, dlib_predictor, face_alignment_object,
-        #                                                                                              process_video2, verbose)
         video1_3D_landmarks_tx_to_2, video2_3D_landmarks_tx_to_1 = exchange_3D_landmarks_using_3D_affine_tx(video1_frame_3D_landmarks, video2_frame_3D_landmarks,
                                                                                                             process_video2=process_video2, verbose=verbose)
 
