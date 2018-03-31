@@ -281,7 +281,7 @@ def affine_3D_tx_facial_landmarks_src_to_dst(source_frame_3D_landmarks, target_f
     retval, Rt_1_to_2, _ = cv2.estimateAffine3D(source_frame_3D_landmarks[:36], target_frame_3D_landmarks[:36])
     if retval:
         # Get the Affine transformed landmarks
-        source_3D_landmarks_tx_to_target = np.dot( Rt_1_to_2, np.hstack(( source_frame_3D_landmarks, np.ones((68, 1)) )).T ).T
+        source_3D_landmarks_tx_to_target = np.dot( Rt_1_to_2, np.hstack(( source_frame_3D_landmarks, np.ones((68, 1)) )).T ).astype('int').T
     else:
         source_3D_landmarks_tx_to_target = None
     return source_3D_landmarks_tx_to_target
