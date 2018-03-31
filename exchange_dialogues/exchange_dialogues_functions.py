@@ -49,7 +49,7 @@ def exchange_dialogues(generator_model,
     except ValueError as err:
         raise ValueError(err)
 
-    video1_length = len(video1_2D_dlib_landmarks)
+    video1_length = len(video1_2D_landmarks)
 
     # Video 2
     if verbose:
@@ -146,12 +146,12 @@ def exchange_dialogues(generator_model,
                                                                                                             process_video2=process_video2, verbose=verbose)
 
         # If landmarks are not detected in the new frames, save as old frame's landmarks
-        if video1_3D_landmarks_tx_to_2 is None:
+        if video2_3D_landmarks_tx_to_1 is None:
             new_video1_lip_landmarks = prev_new_video1_lip_landmarks
         else:
             new_video1_lip_landmarks = video2_3D_landmarks_tx_to_1[48:68, :2]
         if process_video2:
-            if video2_3D_landmarks_tx_to_2 is None:
+            if video1_3D_landmarks_tx_to_2 is None:
                 new_video2_lip_landmarks = prev_new_video2_lip_landmarks
             else:
                 new_video2_lip_landmarks = video1_3D_landmarks_tx_to_2[48:68, :2]
