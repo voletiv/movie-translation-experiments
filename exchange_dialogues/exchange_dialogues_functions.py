@@ -279,7 +279,7 @@ def exchange_3D_landmarks_using_3D_affine_tx(video1_frame_3D_landmarks, video2_f
 def affine_3D_tx_facial_landmarks_src_to_dst(source_frame_3D_landmarks, target_frame_3D_landmarks):
     # Estimate Affine 3D transformation between the first 36 landmarks (jaw, eyebrows, eyes, nose bridge, nose base) from source to target
     retval, Rt_1_to_2, _ = cv2.estimateAffine3D(source_frame_3D_landmarks[:36], target_frame_3D_landmarks[:36])
-    if retval is True:
+    if retval:
         # Get the Affine transformed landmarks
         source_3D_landmarks_tx_to_target = np.dot( Rt_1_to_2, np.hstack(( source_frame_3D_landmarks, np.ones((68, 1)) )).T ).T
     else:
