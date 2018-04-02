@@ -29,7 +29,7 @@ def load_generator(model_path, verbose=False):
 def exchange_dialogues(generator_model,
                        video1_language="telugu", video1_actor="Mahesh_Babu", video1_number=47,
                        video2_language="telugu", video2_actor="Mahesh_Babu", video2_number=89,
-                       output_dir='.', verbose=False):
+                       output_dir='.', verbose=False, debug=False):
 
     # Generator model input shape
     _, generator_model_input_rows, generator_model_input_cols, _ = generator_model.layers[0].input_shape
@@ -156,6 +156,9 @@ def exchange_dialogues(generator_model,
             else:
                 new_video2_lip_landmarks = video1_3D_landmarks_tx_to_2[48:68, :2]
 
+        if debug:
+            plot_2D_landmarks(video1_frame, new_video1_lip_landmarks, save_or_show='save', fig_name=os.path.join(output_dir, 'frame_{0:03d}.png'.format(i))
+        
         # Make frames with black mouth and polygon of landmarks
         video1_frame_with_black_mouth_and_video2_lip_polygons = make_black_mouth_and_lips_polygons(video1_frame, new_video1_lip_landmarks)
         if process_video2:
