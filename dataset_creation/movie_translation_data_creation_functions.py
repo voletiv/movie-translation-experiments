@@ -471,7 +471,20 @@ def plot_lip_landmarks(lip_landmarks, frame=None, video=False):
         plt.show()
 
 
-def plot_3D_landmarks(image, landmarks):
+def plot_2D_landmarks(image, landmarks, save_or_show='show', fig_name='a.png'):
+    frame = np.array(image)
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    for l, landmark in enumerate(landmarks):
+        frame[int(landmark[1]-2):int(landmark[1]+2), int(landmark[0]-2):int(landmark[0]+2)] = 0
+    plt.imshow(frame)
+    if save_or_show == 'show':
+        plt.show()
+    elif save_or_show == 'save':
+        plt.savefig(fig_name)
+
+
+def plot_3D_landmarks(image, landmarks, save_or_show='show', fig_name='a.png'):
     #TODO: Make this nice
     from mpl_toolkits.mplot3d import Axes3D
     fig = plt.figure(figsize=plt.figaspect(.5))
@@ -500,4 +513,7 @@ def plot_3D_landmarks(image, landmarks):
     ax.plot3D(landmarks[60:, 0]*1.2, landmarks[60:, 1], landmarks[60:, 2], color='blue' )
     ax.view_init(elev=90., azim=90.)
     ax.set_xlim(ax.get_xlim()[::-1])
-    plt.show()
+    if save_or_show == 'show':
+        plt.show()
+    elif save_or_show='save':
+        plt.savefig(fig_name)
