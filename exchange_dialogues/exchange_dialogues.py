@@ -20,8 +20,9 @@ if __name__ == '__main__':
                         help="output_dir to save the videos in: def: '<path/to/MOVIE_TRANSLATION>/exchanged_videos'")
     parser.add_argument('-c', '--enable_cuda_for_face_aligment', action="store_true", help="enable cuda for face aligment (DON'T, if using a generator_model, which you usually would!)")
     parser.add_argument('-g', '--generator_model_name', type=str, default=config.GENERATOR_MODEL_NAME, help="generator model name")
-    parser.add_argument('-d', '--using_dlib_or_face_alignment', type=str, default=config.USING_DLIB_OR_FACE_ALIGNMENT, help="using 'dlib' or 'face_alignment'")
+    parser.add_argument('-a', '--using_dlib_or_face_alignment', type=str, default=config.USING_DLIB_OR_FACE_ALIGNMENT, help="using 'dlib' or 'face_alignment'")
     parser.add_argument('--verbose', '-v', action="store_true", help="verbose")
+    parser.add_argument('--debug', '-d', action="store_true", help="debug")
 
     args = parser.parse_args()
 
@@ -41,7 +42,7 @@ if __name__ == '__main__':
         new_video1, new_video2 = exchange_dialogues(generator_model,
                                                     video1_language=args.video1_language, video1_actor=args.video1_actor, video1_number=args.video1_number,
                                                     video2_language=args.video2_language, video2_actor=args.video2_actor, video2_number=args.video2_number,
-                                                    output_dir=args.output_dir, verbose=args.verbose)
+                                                    output_dir=args.output_dir, verbose=args.verbose, debug=args.debug)
 
     except KeyboardInterrupt:
         print("\n\nKeyboard Interrupt! (Ctrl+C was pressed.)\n\n")
