@@ -157,7 +157,7 @@ def exchange_dialogues(generator_model,
                 new_video2_lip_landmarks = video1_3D_landmarks_tx_to_2[48:68, :2]
 
         if debug:
-            plot_2D_landmarks(video1_frame, new_video1_lip_landmarks, save_or_show='save', fig_name=os.path.join(output_dir, 'frame_{0:03d}.png'.format(i))
+            plot_2D_landmarks(video1_frame, new_video1_lip_landmarks, save_or_show='save', fig_name=os.path.join(output_dir, 'frame_{0:03d}.png'.format(i)))
         
         # Make frames with black mouth and polygon of landmarks
         video1_frame_with_black_mouth_and_video2_lip_polygons = make_black_mouth_and_lips_polygons(video1_frame, new_video1_lip_landmarks)
