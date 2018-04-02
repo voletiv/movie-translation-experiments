@@ -91,13 +91,15 @@ def exchange_dialogues(generator_model,
     # EXCHANGE DIALOGUES
     video1_frames_with_black_mouth_and_video2_lip_polygons = []
     video2_frames_with_black_mouth_and_video1_lip_polygons = []
-    new_video1_lip_landmarks_all = []
-    new_video2_lip_landmarks_all = []
 
     if video1_language != video2_language or video1_actor != video2_actor or video1_number != video2_number:
         process_video2 = True
     else:
         process_video2 = False
+
+    if debug:
+        new_video1_lip_landmarks_all = []
+        new_video2_lip_landmarks_all = []
 
     # For each frame
     # read frame, blacken mouth, make new landmarks' polygon
@@ -128,40 +130,27 @@ def exchange_dialogues(generator_model,
         else:
             video2_frame = video1_frame
 
-        # Get the frame's landmarks
-        # Make 3D landmarks as x,y from dlib, and z from LS3D face-alignment
-        video1_frame_3D_landmarks = np.hstack(( np.array(video1_2D_landmarks[video1_frame_numbers[i]][1:])[:, :2],
-                                                np.array(video1_3D_landmarks[video1_frame_numbers[i]][1:])[:, 2].reshape(68, 1) ))
-        if process_video2:
-            video2_frame_3D_landmarks = np.hstack(( np.array(video2_2D_landmarks[video2_frame_numbers[i]][1:])[:, :2],
-                                                    np.array(video2_3D_landmarks[video2_frame_numbers[i]][1:])[:, 2].reshape(68, 1) ))
-        else:
-            video2_frame_3D_landmarks = video1_frame_3D_landmarks
-
         # Saving some default previous landmarks
         if i == 0:
-            prev_new_video1_lip_landmarks = video1_frame_3D_landmarks[48:68, :2]
-            prev_new_video2_lip_landmarks = video2_frame_3D_landmarks[48:68, :2]
+            prev_new_video1_lip_landmarks = video1_frame_2D_landmarks[48:68]
+            prev_new_video2_lip_landmarks = video2_frame_2D_landmarks[48:68]
 
         # Exchange landmarks
-        video1_3D_landmarks_tx_to_2, video2_3D_landmarks_tx_to_1 = exchange_3D_landmarks_using_3D_affine_tx(video1_frame_3D_landmarks, video2_frame_3D_landmarks,
-                                                                                                            process_video2=process_video2, verbose=verbose)
+        new_video1_lip_landmarks, Rt_to_1_from_2, \
+        new_video2_lip_landmarks, Rt_to_2_from_1 = exchange_lip_landmarks_using_3D_affine_tx(video1_frame_2D_landmarks, video1_frame_3D_landmarks,
+                                                                                             video2_frame_2D_landmarks, video2_frame_3D_landmarks,
+                                                                                             process_video2=process_video2, verbose=verbose)
 
         # If landmarks are not detected in the new frames, save as old frame's landmarks
-        if video2_3D_landmarks_tx_to_1 is None:
+        if new_video1_lip_landmarks is None:
             new_video1_lip_landmarks = prev_new_video1_lip_landmarks
-        else:
-            new_video1_lip_landmarks = video2_3D_landmarks_tx_to_1[48:68, :2]
         if process_video2:
-            if video1_3D_landmarks_tx_to_2 is None:
+            if new_video2_lip_landmarks is None:
                 new_video2_lip_landmarks = prev_new_video2_lip_landmarks
-            else:
-                new_video2_lip_landmarks = video1_3D_landmarks_tx_to_2[48:68, :2]
-
+        
         if debug:
             new_video1_lip_landmarks_all.append(new_video1_lip_landmarks)
             new_video2_lip_landmarks_all.append(new_video2_lip_landmarks)
-            # plot_2D_landmarks(video1_frame, new_video1_lip_landmarks, save_or_show='save', fig_name=os.path.join(output_dir, 'frame_{0:03d}.png'.format(i)))
         
         # Make frames with black mouth and polygon of landmarks
         video1_frame_with_black_mouth_and_video2_lip_polygons = make_black_mouth_and_lips_polygons(video1_frame, new_video1_lip_landmarks)
@@ -182,9 +171,32 @@ def exchange_dialogues(generator_model,
         prev_new_video1_lip_landmarks = new_video1_lip_landmarks
         if process_video2:
             prev_new_video2_lip_landmarks = new_video2_lip_landmarks
+            
+        # If debug, plot the rotated 3D landmarks of the frames
+        if debug:
+            if Rt_to_1_from_2 is not None:
+                plot_3D_landmarks(video1_frame, np.dot(Rt_to_1_from_2, video2_frame_3D_landmarks.T).T, save_or_show='save',
+                                  fig_name=os.path.join(output_dir, 'new_lips_on_' \
+                                                        + video1_language + '_' + video1_actor + '_%04d' % video1_number + '_frame_%03d' % video1_frame_numbers[i] + '_from_' \
+                                                        + video2_language + '_' + video2_actor + '_%04d' % video2_number + '_frame_%03d' % video2_frame_numbers[i]))
+            else:
+                print("Rt_to_1_from_2 is None!")
+            if process_video2:
+                if Rt_to_2_from_1 is not None:
+                    plot_3D_landmarks(video2_frame, np.dot(Rt_to_2_from_1, video1_frame_3D_landmarks.T).T, save_or_show='save',
+                                      fig_name=os.path.join(output_dir, 'new_lips_on_' \
+                                                            + video2_language + '_' + video2_actor + '_%04d' % video2_number + '_frame_%03d' % video2_frame_numbers[i] + '_from_' \
+                                                            + video1_language + '_' + video1_actor + '_%04d' % video1_number + '_frame_%03d' % video1_frame_numbers[i]))
+                else:
+                    print("Rt_to_2_from_1 is None!")
 
+    # If debug, save the lip landmarks as a .npz file
     if debug:
-        np.savez(os.path.join(output_dir, 'new_lip_landmarks.npz'), new_video1_lip_landmarks_all=new_video1_lip_landmarks_all, new_video2_lip_landmarks_all=new_video2_lip_landmarks_all)
+        np.savez(os.path.join(output_dir, 'new_lip_landmarks' \
+                              + video1_language + '_' + video1_actor + '_%04d' % video1_number + '_and_' \
+                              + video2_language + '_' + video2_actor + '_%04d' % video2_number + '.npz'),
+                 new_video1_lip_landmarks_all=np.array(new_video1_lip_landmarks_all),
+                 new_video2_lip_landmarks_all=np.array(new_video2_lip_landmarks_all))
             
     # Save black mouth polygons as mp4 with audio
     new_video1_file_name = video1_language + '_' + video1_actor + '_%04d' % video1_number + '_with_audio_of_' + video2_language + '_' + video2_actor + '_%04d' % video2_number + '_black_mouth_polygons.mp4'
@@ -255,46 +267,68 @@ def read_landmarks(language, actor, number, read_2D_dlib_or_3D=''):
         return read_landmarks_list_from_txt(landmarks_file)
 
 
-def exchange_3D_landmarks_using_3D_affine_tx(video1_frame_3D_landmarks, video2_frame_3D_landmarks,
-                                             process_video2=True, verbose=False):
+def exchange_lip_landmarks_using_3D_affine_tx(video1_frame_2D_landmarks, video1_frame_3D_landmarks,
+                                              video2_frame_2D_landmarks, video2_frame_3D_landmarks,
+                                              process_video2=True, verbose=False):
     '''
-    Exchange the landmarks of the two frames - estimate the affine 3D
-    transformations between the 3D landmarks of the two frames (1->2 and 2->1),
-    using only the first 36 landmarks, affine transform each frame's mouth
-    landmarks using the Tx matrices, and return the new lip landmarks
-    Note: Inputs are all 3D facial landmarks, but outputs are only lip landmarks
+    Exchange the landmarks of the two frames:
+    - estimate the affine 3D transformation matrices between the 3D landmarks of the two frames
+      (1->2 and 2->1), using only the first 36 landmarks,
+    - affine transform each frame's 2D mouth landmarks with 3D-z component using the Tx matrices
+    - return the new lip landmarks
+    Note: Inputs are all facial landmarks in 2D and 3D, but outputs are only lip landmarks in 2D
     INPUTS:
-    video1_frame, video1_frame_landmarks, video2_frame, video2_frame_landmarks, process_video2
+    video1_frame_2D_landmarks, video1_frame_3D_landmarks, video2_frame_2D_landmarks, video2_frame_3D_landmarks,
     face_alignment_object : an object of the FaceAlignment class to find landmarks
     OUTPUTS:
-    new_video1_lip_landmarks, new_video2_lip_landmarks
+    new_video1_lip_landmarks, Rt_to_1_from_2, new_video2_lip_landmarks, Rt_to_2_from_1
     '''
 
-    # 1 -> 2
+    # 1 <- 2
     if verbose:
-        print("Affine 3D Tx 1 -> 2")
-    video1_3D_landmarks_tx_to_2 = affine_3D_tx_facial_landmarks_src_to_dst(video1_frame_3D_landmarks, video2_frame_3D_landmarks)
-
-    # 2 -> 1
+        print("Affine 3D Tx 2 -> 1")
+    new_video1_lip_landmarks, Rt_to_1_from_2 = affine_3D_tx_lip_landmarks_src_to_dst(video2_frame_2D_landmarks, video2_frame_3D_landmarks,
+                                                                                     video1_frame_2D_landmarks, video1_frame_3D_landmarks)
+    
+    # 2 <- 1
     if process_video2:
         if verbose:
-            print("Affine 3D Tx 2 -> 1")
-        video2_3D_landmarks_tx_to_1 = affine_3D_tx_facial_landmarks_src_to_dst(video2_frame_3D_landmarks, video1_frame_3D_landmarks)
+            print("Affine 3D Tx 1 -> 2")
+        new_video2_lip_landmarks, Rt_to_2_from_1 = affine_3D_tx_lip_landmarks_src_to_dst(video1_frame_2D_landmarks, video1_frame_3D_landmarks,
+                                                                                         video2_frame_2D_landmarks, video2_frame_3D_landmarks)
     else:
-        video2_3D_landmarks_tx_to_1 = None
+        new_video2_lip_landmarks = None
+        Rt_to_2_from_1 = None
+    
+    return new_video1_lip_landmarks, Rt_to_1_from_2, new_video2_lip_landmarks, Rt_to_2_from_1
 
-    return video1_3D_landmarks_tx_to_2, video2_3D_landmarks_tx_to_1
 
-
-def affine_3D_tx_facial_landmarks_src_to_dst(source_frame_3D_landmarks, target_frame_3D_landmarks):
+def affine_3D_tx_lip_landmarks_src_to_dst(source_frame_2D_landmarks, source_frame_3D_landmarks,
+                                          target_frame_2D_landmarks, target_frame_3D_landmarks):
     # Estimate Affine 3D transformation between the first 36 landmarks (jaw, eyebrows, eyes, nose bridge, nose base) from source to target
-    retval, Rt_1_to_2, _ = cv2.estimateAffine3D(source_frame_3D_landmarks[:36], target_frame_3D_landmarks[:36])
+    retval, Rt_to_dst_from_src, _ = cv2.estimateAffine3D(source_frame_3D_landmarks[:36], target_frame_3D_landmarks[:36])
+
     if retval:
-        # Get the Affine transformed landmarks
-        source_3D_landmarks_tx_to_target = np.dot( Rt_1_to_2, np.hstack(( source_frame_3D_landmarks, np.ones((68, 1)) )).T ).astype('int').T
+
+        # 3D rotate the 2D lip landmarks (because 2D lip landmarks are more stable than 3D)
+        # - Attach the z coordinate of 3D landmarks to 2D landmarks, and add homogeneous coordinate
+        source_frame_combo_3D_lip_landmarks = np.hstack(( np.array(source_frame_2D_landmarks)[48:68, :2],
+                                                          np.array(source_frame_2D_landmarks)[48:68, 2].reshape(20, 1),
+                                                          np.ones((20, 1)) ))
+        # - Rotate
+        target_lip_landmarks_tx_from_source = np.dot( Rt_to_dst_from_src, source_frame_combo_3D_lip_landmarks.T ).T.astype('int')
+
+        # Normalize, un-normalize to match position of target mouth
+        _, source_lip_landmarks_ur, source_lip_landmarks_uc, \
+            source_lip_landmarks_sr, source_lip_landmarks_sc = normalize_lip_landmarks(source_frame_2D_landmarks[48:68])
+        new_target_lip_landmarks = np.round(unnormalize_lip_landmarks(normalize_lip_landmarks(target_lip_landmarks_tx_from_source[:, :2])[0],
+                                                                      source_lip_landmarks_ur, source_lip_landmarks_uc,
+                                                                      source_lip_landmarks_sr, source_lip_landmarks_sc)).astype(int)
+    
     else:
-        source_3D_landmarks_tx_to_target = None
-    return source_3D_landmarks_tx_to_target
+        new_target_lip_landmarks = None
+    
+    return new_target_lip_landmarks, Rt_to_dst_from_src
     
 
 def exchange_lip_landmarks_using_homography(video1_frame, video1_frame_landmarks,
@@ -370,7 +404,7 @@ def exchange_lip_landmarks_using_homography(video1_frame, video1_frame_landmarks
         elif using_dlib_or_face_alignment == 'face_alignment':
             new_video2_frame_landmarks = get_landmarks_using_FaceAlignment(video1_frame_warped_to_2, face_alignment_object)
 
-        # Align new lip landmarks with old lip landmarks' position adn scale
+        # Align new lip landmarks with old lip landmarks' position and scale
         if new_video2_frame_landmarks is not None:
             if verbose:
                 print("exchange_landmarks: finding new_video2_lip_landmarks by normalizing and unnormalizing new_video1_frame_landmarks...")
