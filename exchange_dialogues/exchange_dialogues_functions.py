@@ -333,11 +333,11 @@ def affine_3D_tx_lip_landmarks_src_to_dst(source_frame_2D_landmarks, source_fram
         target_lip_landmarks_tx_from_source = np.dot( Rt_to_dst_from_src, source_frame_combo_3D_lip_landmarks.T ).T.astype('int')
 
         # Normalize, un-normalize to match position of target mouth
-        _, source_lip_landmarks_ur, source_lip_landmarks_uc, \
-            source_lip_landmarks_sr, source_lip_landmarks_sc = normalize_lip_landmarks(source_frame_2D_landmarks[48:68])
+        _, target_lip_landmarks_ur, target_lip_landmarks_uc, \
+            target_lip_landmarks_sr, target_lip_landmarks_sc = normalize_lip_landmarks(target_frame_2D_landmarks[48:68])
         new_target_lip_landmarks = np.round(unnormalize_lip_landmarks(normalize_lip_landmarks(target_lip_landmarks_tx_from_source[:, :2])[0],
-                                                                      source_lip_landmarks_ur, source_lip_landmarks_uc,
-                                                                      source_lip_landmarks_sr, source_lip_landmarks_sc)).astype(int)
+                                                                      target_lip_landmarks_ur, target_lip_landmarks_uc,
+                                                                      target_lip_landmarks_sr, target_lip_landmarks_sc)).astype(int)
     
     else:
         new_target_lip_landmarks = None
