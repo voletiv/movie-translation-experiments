@@ -515,5 +515,5 @@ def plot_3D_landmarks(image, landmarks, save_or_show='show', fig_name='a.png'):
     ax.set_xlim(ax.get_xlim()[::-1])
     if save_or_show == 'show':
         plt.show()
-    elif save_or_show='save':
+    elif save_or_show == 'save':
         plt.savefig(fig_name)
