@@ -326,18 +326,16 @@ def affine_3D_tx_lip_landmarks_src_to_dst(source_frame_2D_landmarks, source_fram
 
         # 3D rotate the 2D lip landmarks (because 2D lip landmarks are more stable than 3D)
         # - Attach the z coordinate of 3D landmarks to 2D landmarks, and add homogeneous coordinate
-        source_frame_combo_3D_lip_landmarks = np.hstack(( np.array(source_frame_2D_landmarks)[48:68, :2],
+        source_frame_combo_3D_lip_landmarks = np.hstack(( np.array(source_frame_2D_landmarks)[48:68],
                                                           np.array(source_frame_3D_landmarks)[48:68, 2].reshape(20, 1),
                                                           np.ones((20, 1)) ))
         # - Rotate
         target_lip_landmarks_tx_from_source = np.dot( Rt_to_dst_from_src, source_frame_combo_3D_lip_landmarks.T ).T.astype('int')
 
         # Normalize, un-normalize to match position of target mouth
-        _, target_lip_landmarks_ur, target_lip_landmarks_uc, \
-            target_lip_landmarks_sr, target_lip_landmarks_sc = normalize_lip_landmarks(target_frame_2D_landmarks[48:68])
+        _, target_lip_landmarks_ux, target_lip_landmarks_uy, target_lip_landmarks_w = normalize_lip_landmarks(target_frame_2D_landmarks[48:68])
         new_target_lip_landmarks = np.round(unnormalize_lip_landmarks(normalize_lip_landmarks(target_lip_landmarks_tx_from_source[:, :2])[0],
-                                                                      target_lip_landmarks_ur, target_lip_landmarks_uc,
-                                                                      target_lip_landmarks_sr, target_lip_landmarks_sc)).astype(int)
+                                                                      target_lip_landmarks_ux, target_lip_landmarks_uy, target_lip_landmarks_w)).astype(int)
     
     else:
         new_target_lip_landmarks = None
@@ -497,6 +495,16 @@ def save_new_video_frames_with_old_audio_as_mp4(frames,
     # imageio.mimsave(os.path.join("video2.gif"), new_video2_frames_generated)
 
 
+def normalize_lip_landmarks(lip_landmarks):
+    ux, uy = lip_landmarks[0]
+    w = lip_landmarks[:, 0].max() - lip_landmarks[:, 0].min()
+    return (lip_landmarks - [ux, uy])/w, ux, uy, w
+
+
+def unnormalize_lip_landmarks(lip_landmarks, ux, uy, w):
+    return lip_landmarks*w + [ux, uy]
+
+
 def get_metadata(language="telugu", actor="Mahesh_Babu", number=47):
     metadata_file = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, "metadata", language, actor + '.txt')
     with open(metadata_file, 'r') as f:
@@ -530,16 +538,6 @@ def rotate_points(points, origin, angle):
     # When the points are row matrices, R is:
     R = np.array([[math.cos(angle), math.sin(angle)], [-math.sin(angle), math.cos(angle)]])
     return origin + np.dot(points-origin, R)
-
-
-def normalize_lip_landmarks(lip_landmarks):
-    ur, uc = lip_landmarks[0]
-    sr, sc = lip_landmarks[:, 0].max() - lip_landmarks[:, 0].min(), lip_landmarks[:, 1].max() - lip_landmarks[:, 1].min()
-    return (lip_landmarks - [ur, uc])/[sr, sc], ur, uc, sr, sc
-
-
-def unnormalize_lip_landmarks(lip_landmarks, ur, uc, sr, sc):
-    return lip_landmarks * [sr, sc] + [ur, uc]
 
 
 def unrotate_lip_landmarks_point_by_point(lip_landmarks):
