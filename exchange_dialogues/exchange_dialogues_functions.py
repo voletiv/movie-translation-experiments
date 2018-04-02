@@ -91,6 +91,8 @@ def exchange_dialogues(generator_model,
     # EXCHANGE DIALOGUES
     video1_frames_with_black_mouth_and_video2_lip_polygons = []
     video2_frames_with_black_mouth_and_video1_lip_polygons = []
+    new_video1_lip_landmarks_all = []
+    new_video2_lip_landmarks_all = []
 
     if video1_language != video2_language or video1_actor != video2_actor or video1_number != video2_number:
         process_video2 = True
@@ -157,7 +159,9 @@ def exchange_dialogues(generator_model,
                 new_video2_lip_landmarks = video1_3D_landmarks_tx_to_2[48:68, :2]
 
         if debug:
-            plot_2D_landmarks(video1_frame, new_video1_lip_landmarks, save_or_show='save', fig_name=os.path.join(output_dir, 'frame_{0:03d}.png'.format(i)))
+            new_video1_lip_landmarks_all.append(new_video1_lip_landmarks)
+            new_video2_lip_landmarks_all.append(new_video2_lip_landmarks)
+            # plot_2D_landmarks(video1_frame, new_video1_lip_landmarks, save_or_show='save', fig_name=os.path.join(output_dir, 'frame_{0:03d}.png'.format(i)))
         
         # Make frames with black mouth and polygon of landmarks
         video1_frame_with_black_mouth_and_video2_lip_polygons = make_black_mouth_and_lips_polygons(video1_frame, new_video1_lip_landmarks)
@@ -179,6 +183,9 @@ def exchange_dialogues(generator_model,
         if process_video2:
             prev_new_video2_lip_landmarks = new_video2_lip_landmarks
 
+    if debug:
+        np.savez(os.path.join(output_dir, 'new_lip_landmarks.npz'), new_video1_lip_landmarks_all=new_video1_lip_landmarks_all, new_video2_lip_landmarks_all=new_video2_lip_landmarks_all)
+            
     # Save black mouth polygons as mp4 with audio
     new_video1_file_name = video1_language + '_' + video1_actor + '_%04d' % video1_number + '_with_audio_of_' + video2_language + '_' + video2_actor + '_%04d' % video2_number + '_black_mouth_polygons.mp4'
     save_new_video_frames_with_old_audio_as_mp4(np.array([frame for frame in video1_frames_with_black_mouth_and_video2_lip_polygons]).astype('uint8'),
