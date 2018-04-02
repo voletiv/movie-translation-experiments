@@ -327,7 +327,7 @@ def affine_3D_tx_lip_landmarks_src_to_dst(source_frame_2D_landmarks, source_fram
         # 3D rotate the 2D lip landmarks (because 2D lip landmarks are more stable than 3D)
         # - Attach the z coordinate of 3D landmarks to 2D landmarks, and add homogeneous coordinate
         source_frame_combo_3D_lip_landmarks = np.hstack(( np.array(source_frame_2D_landmarks)[48:68, :2],
-                                                          np.array(source_frame_2D_landmarks)[48:68, 2].reshape(20, 1),
+                                                          np.array(source_frame_3D_landmarks)[48:68, 2].reshape(20, 1),
                                                           np.ones((20, 1)) ))
         # - Rotate
         target_lip_landmarks_tx_from_source = np.dot( Rt_to_dst_from_src, source_frame_combo_3D_lip_landmarks.T ).T.astype('int')
