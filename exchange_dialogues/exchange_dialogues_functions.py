@@ -130,16 +130,22 @@ def exchange_dialogues(generator_model,
         else:
             video2_frame = video1_frame
 
+        # Noting current frame's landmarks
+        video1_frame_2D_landmarks = np.array(video1_2D_landmarks[video1_frame_numbers[i]][1:])
+        video1_frame_3D_landmarks = np.array(video1_3D_landmarks[video1_frame_numbers[i]][1:])
+        video2_frame_2D_landmarks = np.array(video2_2D_landmarks[video2_frame_numbers[i]][1:])
+        video2_frame_3D_landmarks = np.array(video2_3D_landmarks[video2_frame_numbers[i]][1:])
+
         # Saving some default previous landmarks
         if i == 0:
-            prev_new_video1_lip_landmarks = video1_frame_2D_landmarks[48:68]
-            prev_new_video2_lip_landmarks = video2_frame_2D_landmarks[48:68]
+            prev_new_video1_lip_landmarks = video1_frame_2D_landmarks
+            prev_new_video2_lip_landmarks = video2_frame_2D_landmarks
 
         # Exchange landmarks
         new_video1_lip_landmarks, Rt_to_1_from_2, \
-        new_video2_lip_landmarks, Rt_to_2_from_1 = exchange_lip_landmarks_using_3D_affine_tx(video1_frame_2D_landmarks, video1_frame_3D_landmarks,
-                                                                                             video2_frame_2D_landmarks, video2_frame_3D_landmarks,
-                                                                                             process_video2=process_video2, verbose=verbose)
+            new_video2_lip_landmarks, Rt_to_2_from_1 = exchange_lip_landmarks_using_3D_affine_tx(video1_frame_2D_landmarks, video1_frame_3D_landmarks,
+                                                                                                 video2_frame_2D_landmarks, video2_frame_3D_landmarks,
+                                                                                                 process_video2=process_video2, verbose=verbose)
 
         # If landmarks are not detected in the new frames, save as old frame's landmarks
         if new_video1_lip_landmarks is None:
@@ -158,9 +164,13 @@ def exchange_dialogues(generator_model,
             video2_frame_with_black_mouth_and_video1_lip_polygons = make_black_mouth_and_lips_polygons(video2_frame, new_video2_lip_landmarks)
 
         # Resize frame to input_size of generator_model
-        video1_frame_with_black_mouth_and_video2_lip_polygons_resized = cv2.resize(video1_frame_with_black_mouth_and_video2_lip_polygons, (generator_model_input_rows, generator_model_input_cols), interpolation=cv2.INTER_AREA)
+        video1_frame_with_black_mouth_and_video2_lip_polygons_resized = cv2.resize(video1_frame_with_black_mouth_and_video2_lip_polygons,
+                                                                                   (generator_model_input_rows, generator_model_input_cols),
+                                                                                   interpolation=cv2.INTER_AREA)
         if process_video2:
-            video2_frame_with_black_mouth_and_video1_lip_polygons_resized = cv2.resize(video2_frame_with_black_mouth_and_video1_lip_polygons, (generator_model_input_rows, generator_model_input_cols), interpolation=cv2.INTER_AREA)
+            video2_frame_with_black_mouth_and_video1_lip_polygons_resized = cv2.resize(video2_frame_with_black_mouth_and_video1_lip_polygons,
+                                                                                       (generator_model_input_rows, generator_model_input_cols),
+                                                                                       interpolation=cv2.INTER_AREA)
 
         # Append frame to list
         video1_frames_with_black_mouth_and_video2_lip_polygons.append(video1_frame_with_black_mouth_and_video2_lip_polygons_resized)
@@ -199,13 +209,15 @@ def exchange_dialogues(generator_model,
                  new_video2_lip_landmarks_all=np.array(new_video2_lip_landmarks_all))
             
     # Save black mouth polygons as mp4 with audio
-    new_video1_file_name = video1_language + '_' + video1_actor + '_%04d' % video1_number + '_with_audio_of_' + video2_language + '_' + video2_actor + '_%04d' % video2_number + '_black_mouth_polygons.mp4'
+    new_video1_file_name = video1_language + '_' + video1_actor + '_%04d' % video1_number + '_with_audio_of_' \
+                           + video2_language + '_' + video2_actor + '_%04d' % video2_number + '_black_mouth_polygons.mp4'
     save_new_video_frames_with_old_audio_as_mp4(np.array([frame for frame in video1_frames_with_black_mouth_and_video2_lip_polygons]).astype('uint8'),
                                                 audio_language=video2_language, audio_actor=video2_actor, audio_number=video2_number,
                                                 output_dir=output_dir, file_name=new_video1_file_name, verbose=verbose)
 
     if process_video2:
-        new_video2_file_name = video2_language + '_' + video2_actor + '_%04d' % video2_number + '_with_audio_of_' + video1_language + '_' + video1_actor + '_%04d' % video1_number + '_black_mouth_polygons.mp4'
+        new_video2_file_name = video2_language + '_' + video2_actor + '_%04d' % video2_number + '_with_audio_of_' \
+                               + video1_language + '_' + video1_actor + '_%04d' % video1_number + '_black_mouth_polygons.mp4'
         save_new_video_frames_with_old_audio_as_mp4(np.array([frame for frame in video2_frames_with_black_mouth_and_video1_lip_polygons]).astype('uint8'),
                                                     audio_language=video1_language, audio_actor=video1_actor, audio_number=video1_number,
                                                     output_dir=output_dir, file_name=new_video2_file_name, verbose=verbose)
@@ -225,12 +237,14 @@ def exchange_dialogues(generator_model,
         new_video2_frames_generated = new_video1_frames_generated
 
     # Save as new mp4 with audio
-    new_video1_file_name = video1_language + '_' + video1_actor + '_%04d' % video1_number + '_with_audio_of_' + video2_language + '_' + video2_actor + '_%04d' % video2_number + '.mp4'
+    new_video1_file_name = video1_language + '_' + video1_actor + '_%04d' % video1_number + '_with_audio_of_' \
+                           + video2_language + '_' + video2_actor + '_%04d' % video2_number + '.mp4'
     save_new_video_frames_with_old_audio_as_mp4(new_video1_frames_generated,
                                                 audio_language=video2_language, audio_actor=video2_actor, audio_number=video2_number,
                                                 output_dir=output_dir, file_name=new_video1_file_name, verbose=verbose)
     if process_video2:
-        new_video2_file_name = video2_language + '_' + video2_actor + '_%04d' % video2_number + '_with_audio_of_' + video1_language + '_' + video1_actor + '_%04d' % video1_number + '.mp4'
+        new_video2_file_name = video2_language + '_' + video2_actor + '_%04d' % video2_number + '_with_audio_of_' \
+                               + video1_language + '_' + video1_actor + '_%04d' % video1_number + '.mp4'
         save_new_video_frames_with_old_audio_as_mp4(new_video2_frames_generated,
                                                     audio_language=video1_language, audio_actor=video1_actor, audio_number=video1_number,
                                                     output_dir=output_dir, file_name=new_video2_file_name, verbose=verbose)
@@ -357,8 +371,10 @@ def exchange_lip_landmarks_using_homography(video1_frame, video1_frame_landmarks
             print("\n\n[ERROR] Please provide face_alignment_object! (Since you have chosen the option of 'face_alignment' in 'using_dlib_or_face_alignment')\n\n")
             return
 
-    _, video1_lip_landmarks_ur, video1_lip_landmarks_uc, video1_lip_landmarks_sr, video1_lip_landmarks_sc = normalize_lip_landmarks(video1_frame_landmarks[48:68, :2])
-    _, video2_lip_landmarks_ur, video2_lip_landmarks_uc, video2_lip_landmarks_sr, video2_lip_landmarks_sc = normalize_lip_landmarks(video2_frame_landmarks[48:68, :2])
+    _, video1_lip_landmarks_ur, video1_lip_landmarks_uc, \
+        video1_lip_landmarks_sr, video1_lip_landmarks_sc = normalize_lip_landmarks(video1_frame_landmarks[48:68, :2])
+    _, video2_lip_landmarks_ur, video2_lip_landmarks_uc, \
+        video2_lip_landmarks_sr, video2_lip_landmarks_sc = normalize_lip_landmarks(video2_frame_landmarks[48:68, :2])
 
     # New video1 landmarks: landmarks of 2 -> landmarks of 1
 
