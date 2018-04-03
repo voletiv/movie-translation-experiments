@@ -71,26 +71,31 @@ if not os.path.exists(output_dir_val):
 if not os.path.exists(output_dir_test):
     os.makedirs(output_dir_test)
 
-# Read all frame names
-all_frames = []
+# Read all video names
+all_video_names = []
 for video_name in tqdm.tqdm(sorted(glob.glob(os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'frames_combined', language, actor, '*/')))):
-    for frame in sorted(glob.glob(os.path.join(video_name, '*'))):
-        all_frames.append(frame)
+    all_video_names.append(video_name)
 
-# Shuffle the frame names
+# Shuffle the video names
 np.random.seed(29)
-np.random.shuffle(all_frames)
+np.random.shuffle(all_video_names)
 
-train_set_len = int(len(all_frames) * 0.8)
-val_set_len = int(len(all_frames) * 0.1)
-test_set_len = int(len(all_frames) * 0.1)
+# Set train, val, test video names
+train_set_len = int(len(all_video_names) * 0.8)
+val_set_len = int(len(all_video_names) * 0.1)
+test_set_len = int(len(all_video_names) * 0.1)
 
-for frame in tqdm.tqdm(all_frames[:train_set_len]):
-    a = subprocess.call(['cp', frame, output_dir_train])
+# Train
+for video_name in tqdm.tqdm(all_video_names[:train_set_len]):
+    for frame in sorted(glob.glob(os.path.join(video_name, '*'))):
+        a = subprocess.call(['cp', frame, output_dir_train])
 
-for frame in tqdm.tqdm(all_frames[train_set_len:(train_set_len + val_set_len)]):
-    a = subprocess.call(['cp', frame, output_dir_val])
-
-for frame in tqdm.tqdm(all_frames[(train_set_len + val_set_len):(train_set_len + val_set_len + test_set_len)]):
-    a = subprocess.call(['cp', frame, output_dir_test])
-
+# Val
+for video_name in tqdm.tqdm(all_video_names[train_set_len:(train_set_len + val_set_len)]):
+    for frame in sorted(glob.glob(os.path.join(video_name, '*'))):
+        a = subprocess.call(['cp', frame, output_dir_val])
+        
+# Test
+for video_name in tqdm.tqdm(all_video_names[(train_set_len + val_set_len):(train_set_len + val_set_len + test_set_len)]):
+    for frame in sorted(glob.glob(os.path.join(video_name, '*'))):
+        a = subprocess.call(['cp', frame, output_dir_test])
