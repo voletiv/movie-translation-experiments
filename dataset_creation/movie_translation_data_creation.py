@@ -23,7 +23,7 @@ for language in tqdm.tqdm(sorted(os.listdir(os.path.join(config.MOVIE_TRANSLATIO
     for metadata_txt_file in tqdm.tqdm(sorted(glob.glob(os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'metadata', language, "*")))):
         actor = os.path.splitext(os.path.basename(metadata_txt_file))[0]
         print("\n", actor, "\n")
-        metadata = read_metadata(metadata_txt_file)
+        metadata = utils.read_metadata(metadata_txt_file)
         # Extract video clips
         print("Extracting video clips...")
         extract_video_clips(language, actor, metadata, verbose=False)

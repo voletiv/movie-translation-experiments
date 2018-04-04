@@ -38,13 +38,13 @@ def exchange_dialogues(generator_model,
     if verbose:
         print("Getting video1 dir and landmarks")
     try:
-        video1_frames_dir = get_video_frames_dir(video1_language, video1_actor, video1_number)
+        video1_frames_dir = utils.get_video_frames_dir(video1_language, video1_actor, video1_number)
         
         # Read 2D landmarks detected using dlib (dlib.net)
-        video1_2D_landmarks = read_landmarks(video1_language, video1_actor, video1_number, '2D_dlib')
+        video1_2D_landmarks = utils.read_landmarks(video1_language, video1_actor, video1_number, '2D_dlib')
         
        # Read 3D landmarks detected using face_alignment trained on LS3D-W (https://github.com/1adrianb/face-alignment)
-        video1_3D_landmarks = read_landmarks(video1_language, video1_actor, video1_number, '3D')
+        video1_3D_landmarks = utils.read_landmarks(video1_language, video1_actor, video1_number, '3D')
     
     except ValueError as err:
         raise ValueError(err)
@@ -55,13 +55,13 @@ def exchange_dialogues(generator_model,
     if verbose:
         print("Getting video2 dir and landmarks")
     try:
-        video2_frames_dir = get_video_frames_dir(video2_language, video2_actor, video2_number)
+        video2_frames_dir = utils.get_video_frames_dir(video2_language, video2_actor, video2_number)
         
         # Read 2D landmarks detected using dlib (dlib.net)
-        video2_2D_landmarks = read_landmarks(video2_language, video2_actor, video2_number, '2D_dlib')
+        video2_2D_landmarks = utils.read_landmarks(video2_language, video2_actor, video2_number, '2D_dlib')
 
        # Read 3D landmarks detected using face_alignment trained on LS3D-W (https://github.com/1adrianb/face-alignment)
-        video2_3D_landmarks = read_landmarks(video2_language, video2_actor, video2_number, '3D')
+        video2_3D_landmarks = utils.read_landmarks(video2_language, video2_actor, video2_number, '3D')
 
     except ValueError as err:
         raise ValueError(err)
@@ -159,9 +159,9 @@ def exchange_dialogues(generator_model,
             new_video2_lip_landmarks_all.append(new_video2_lip_landmarks)
         
         # Make frames with black mouth and polygon of landmarks
-        video1_frame_with_black_mouth_and_video2_lip_polygons = make_black_mouth_and_lips_polygons(video1_frame, new_video1_lip_landmarks)
+        video1_frame_with_black_mouth_and_video2_lip_polygons = utils.make_black_mouth_and_lips_polygons(video1_frame, new_video1_lip_landmarks)
         if process_video2:
-            video2_frame_with_black_mouth_and_video1_lip_polygons = make_black_mouth_and_lips_polygons(video2_frame, new_video2_lip_landmarks)
+            video2_frame_with_black_mouth_and_video1_lip_polygons = utils.make_black_mouth_and_lips_polygons(video2_frame, new_video2_lip_landmarks)
 
         # Resize frame to input_size of generator_model
         video1_frame_with_black_mouth_and_video2_lip_polygons_resized = cv2.resize(video1_frame_with_black_mouth_and_video2_lip_polygons,
@@ -185,18 +185,18 @@ def exchange_dialogues(generator_model,
         # If debug, plot the rotated 3D landmarks of the frames
         if debug:
             if Rt_to_1_from_2 is not None:
-                plot_3D_landmarks(video1_frame, np.dot(Rt_to_1_from_2, video2_frame_3D_landmarks.T).T, save_or_show='save',
-                                  fig_name=os.path.join(output_dir, 'new_lips_on_' \
-                                                        + video1_language + '_' + video1_actor + '_%04d' % video1_number + '_frame_%03d' % video1_frame_numbers[i] + '_from_' \
-                                                        + video2_language + '_' + video2_actor + '_%04d' % video2_number + '_frame_%03d' % video2_frame_numbers[i]))
+                utils.plot_3D_landmarks(video1_frame, np.dot(Rt_to_1_from_2, video2_frame_3D_landmarks.T).T, save_or_show='save',
+                                        fig_name=os.path.join(output_dir, 'new_lips_on_' \
+                                                              + video1_language + '_' + video1_actor + '_%04d' % video1_number + '_frame_%03d' % video1_frame_numbers[i] + '_from_' \
+                                                              + video2_language + '_' + video2_actor + '_%04d' % video2_number + '_frame_%03d' % video2_frame_numbers[i]))
             else:
                 print("Rt_to_1_from_2 is None!")
             if process_video2:
                 if Rt_to_2_from_1 is not None:
-                    plot_3D_landmarks(video2_frame, np.dot(Rt_to_2_from_1, video1_frame_3D_landmarks.T).T, save_or_show='save',
-                                      fig_name=os.path.join(output_dir, 'new_lips_on_' \
-                                                            + video2_language + '_' + video2_actor + '_%04d' % video2_number + '_frame_%03d' % video2_frame_numbers[i] + '_from_' \
-                                                            + video1_language + '_' + video1_actor + '_%04d' % video1_number + '_frame_%03d' % video1_frame_numbers[i]))
+                    utils.plot_3D_landmarks(video2_frame, np.dot(Rt_to_2_from_1, video1_frame_3D_landmarks.T).T, save_or_show='save',
+                                            fig_name=os.path.join(output_dir, 'new_lips_on_' \
+                                                                  + video2_language + '_' + video2_actor + '_%04d' % video2_number + '_frame_%03d' % video2_frame_numbers[i] + '_from_' \
+                                                                  + video1_language + '_' + video1_actor + '_%04d' % video1_number + '_frame_%03d' % video1_frame_numbers[i]))
                 else:
                     print("Rt_to_2_from_1 is None!")
 
@@ -255,30 +255,6 @@ def exchange_dialogues(generator_model,
 #################################################
 # DEPENDENT FUNCTIONS
 #################################################
-
-
-def get_video_frames_dir(language, actor, number):
-    frames_dir = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'frames', language, actor, actor + '_%04d' % number)
-    if not os.path.exists(frames_dir):
-        raise ValueError("[ERROR]: frames_dir", frames_dir, "does not exist!")
-    else:
-        return frames_dir
-
-
-def read_landmarks(language, actor, number, read_2D_dlib_or_3D=''):
-    '''
-    language: e.g. 'telugu'
-    actor: e.g. 'Mahesh_Babu'
-    number: e.g. 3
-    read_2D_dlib_or_3D = '' or '2D_dlib' or '3D'
-    '''
-    if read_2D_dlib_or_3D:
-        actor_suffix = '_' + read_2D_dlib_or_3D
-    landmarks_file = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'landmarks', language, actor + actor_suffix, actor + '_%04d' % number + "_landmarks.txt")
-    if not os.path.exists(landmarks_file):
-        raise ValueError("[ERROR] landmarks file does not exist! Given: " + landmarks_file)
-    else:
-        return read_landmarks_list_from_txt(landmarks_file)
 
 
 def exchange_lip_landmarks_using_3D_affine_tx(video1_frame_2D_landmarks, video1_frame_3D_landmarks,
@@ -386,9 +362,9 @@ def exchange_lip_landmarks_using_homography(video1_frame, video1_frame_landmarks
     if verbose:
         print("exchange_landmarks: finding new_video1_frame_landmarks of video2_frame_warped_to_1...")
     if using_dlib_or_face_alignment == 'dlib':
-        new_video1_frame_landmarks = get_landmarks_using_dlib_detector_and_predictor(video2_frame_warped_to_1, dlib_detector, dlib_predictor)
+        new_video1_frame_landmarks = utils.get_landmarks_using_dlib_detector_and_predictor(video2_frame_warped_to_1, dlib_detector, dlib_predictor)
     elif using_dlib_or_face_alignment == 'face_alignment':
-        new_video1_frame_landmarks = get_landmarks_using_FaceAlignment(video2_frame_warped_to_1, face_alignment_object)
+        new_video1_frame_landmarks = utils.get_landmarks_using_FaceAlignment(video2_frame_warped_to_1, face_alignment_object)
 
     # Align new lip landmarks with old lip landmarks' position and scale
     if new_video1_frame_landmarks is not None:
@@ -414,9 +390,9 @@ def exchange_lip_landmarks_using_homography(video1_frame, video1_frame_landmarks
         if verbose:
             print("exchange_landmarks: finding new_video2_frame_landmarks of video1_frame_warped_to_2...")
         if using_dlib_or_face_alignment == 'dlib':
-            new_video2_frame_landmarks = get_landmarks_using_dlib_detector_and_predictor(video1_frame_warped_to_2, dlib_detector, dlib_predictor)
+            new_video2_frame_landmarks = utils.get_landmarks_using_dlib_detector_and_predictor(video1_frame_warped_to_2, dlib_detector, dlib_predictor)
         elif using_dlib_or_face_alignment == 'face_alignment':
-            new_video2_frame_landmarks = get_landmarks_using_FaceAlignment(video1_frame_warped_to_2, face_alignment_object)
+            new_video2_frame_landmarks = utils.get_landmarks_using_FaceAlignment(video1_frame_warped_to_2, face_alignment_object)
 
         # Align new lip landmarks with old lip landmarks' position and scale
         if new_video2_frame_landmarks is not None:
@@ -512,15 +488,8 @@ def get_metadata(language="telugu", actor="Mahesh_Babu", number=47):
             if l == number:
                 metadata = line.strip().split()
                 break
+    # orig_video, start_time, duration
     return os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, "youtube_videos", metadata[1] + '.mp4'), metadata[2], metadata[3]
-
-
-def plot_landmarks(frame, landmarks):
-    frame = np.array(frame)
-    for (x, y) in landmarks:
-        cv2.circle(frame, (int(x), int(y)), 1, (0, 0, 255), -1)
-    plt.imshow(frame)
-    plt.show()
 
 
 def unrotate_lip_landmarks(lip_landmarks):
