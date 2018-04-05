@@ -166,10 +166,14 @@ def watch_video(video_frames):
 
 def plot_2D_landmarks(image, landmarks, save_or_show='show', fig_name='a.png'):
     frame = np.array(image)
+    if frame.max() <= 1.:
+        max_value = 1
+    else:
+        max_value() = 255
     fig = plt.figure()
     ax = fig.add_subplot(111)
     for l, landmark in enumerate(landmarks):
-        frame[int(landmark[1]-2):int(landmark[1]+2), int(landmark[0]-2):int(landmark[0]+2)] = 0
+        frame[int(landmark[1]-2):int(landmark[1]+2), int(landmark[0]-2):int(landmark[0]+2)] = max_value
     plt.imshow(frame)
     if save_or_show == 'show':
         plt.show()
