@@ -81,9 +81,9 @@ np.random.seed(29)
 np.random.shuffle(all_video_names)
 
 # Set train, val, test video names
-train_set_len = int(len(all_video_names) * 0.8)
-val_set_len = int(len(all_video_names) * 0.1)
-test_set_len = int(len(all_video_names) * 0.1)
+train_set_len = round(len(all_video_names) * 0.9)
+val_set_len = round(len(all_video_names) * 0.05)
+test_set_len = round(len(all_video_names) * 0.05)
 
 # Train
 for video_name in tqdm.tqdm(all_video_names[:train_set_len]):
