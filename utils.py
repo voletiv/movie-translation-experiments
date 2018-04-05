@@ -169,7 +169,7 @@ def plot_2D_landmarks(image, landmarks, save_or_show='show', fig_name='a.png'):
     if frame.max() <= 1.:
         max_value = 1
     else:
-        max_value() = 255
+        max_value = 255
     fig = plt.figure()
     ax = fig.add_subplot(111)
     for l, landmark in enumerate(landmarks):
