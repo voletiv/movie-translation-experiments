@@ -170,17 +170,18 @@ def plot_2D_landmarks(image, landmarks, save_or_show='show', fig_name='a.png'):
         max_value = 1
     else:
         max_value = 255
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
+    face_width = landmarks[:, 0].max() - landmarks[:, 0].min()
+    lm_width = np.ceil(face_width / 50)
     for l, landmark in enumerate(landmarks):
-        frame[int(landmark[1]-2):int(landmark[1]+2), int(landmark[0]-2):int(landmark[0]+2)] = max_value
-    plt.imshow(frame)
+        frame[int(landmark[1]-lm_width):int(landmark[1]+lm_width), int(landmark[0]-lm_width):int(landmark[0]+lm_width)] = max_value
     if save_or_show == 'show':
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        plt.imshow(frame)
         plt.show()
         plt.close()
     elif save_or_show == 'save':
-        plt.savefig(fig_name)
-        plt.close()
+        cv2.imwrite(fig_name, frame)
 
 
 def plot_3D_landmarks(image, landmarks, save_or_show='show', fig_name='a.png'):
