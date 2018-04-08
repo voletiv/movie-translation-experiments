@@ -8,6 +8,7 @@ class MovieTranslationConfig():
         PIX2PIX_CODE_DIR = '/home/voletiv/GitHubRepos/DeepLearningImplementations/pix2pix/'
         YOUTUBE_VIDEOS_DIR ='/home/voletiv/Datasets/MOVIE_TRANSLATION/youtube_videos/'
         SHAPE_PREDICTOR_PATH = '/home/voletiv/GitHubRepos/lipreading-in-the-wild-experiments/shape-predictor/shape_predictor_68_face_landmarks.dat'
+        FACE_REC_MODEL_PATH = '/home/voletiv/Downloads/dlib_face_recognition_resnet_model_v1.dat'
 
     elif 'voleti.vikram' in os.getcwd():
         # voleti.vikram
@@ -15,6 +16,7 @@ class MovieTranslationConfig():
         PIX2PIX_CODE_DIR = '/shared/fusor/home/voleti.vikram/DeepLearningImplementations/pix2pix/'
         YOUTUBE_VIDEOS_DIR ='/shared/fusor/home/voleti.vikram/MOVIE_TRANSLATION/youtube_videos/'
         SHAPE_PREDICTOR_PATH = '/shared/fusor/home/voleti.vikram/shape_predictor_68_face_landmarks.dat'
+        FACE_REC_MODEL_PATH = '/shared/fusor/home/voleti.vikram/dlib_face_recognition_resnet_model_v1.dat'
 
     GENERATOR_MODEL_NAME = os.path.join(PIX2PIX_CODE_DIR, 'models/20180314_152941_Mahesh_Babu_black_mouth_polygons/generator_latest.h5')
 
