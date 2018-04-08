@@ -4,7 +4,7 @@ ANDREW_NG_DIR = '/shared/fusor/home/voleti.vikram/ANDREW_NG/'
 
 # for vid_dir in glob.glob(os.path.join(ANDREW_NG_DIR, 'videos', '*/')):
 
-for vid in glob.glob(os.path.join(ANDREW_NG_DIR, 'videos', 'CV', '*')):
+for vid in sorted(glob.glob(os.path.join(ANDREW_NG_DIR, 'videos', 'CV', '*'))):
     extract_person_face_frames(vid,
                                out_dir='/shared/fusor/home/voleti.vikram/ANDREW_NG/',
                                person_name='andrew_ng', person_face_image='/shared/fusor/home/voleti.vikram/ANDREW_NG/andrew_ng.png',
