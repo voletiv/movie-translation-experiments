@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
+from skimage.transform import resize
+
 from config import *
 
 
@@ -34,6 +36,30 @@ def load_face_alignment_object(enable_cuda=False, flip_input=False, use_cnn_face
                                         enable_cuda=enable_cuda,
                                         flip_input=flip_input,
                                         use_cnn_face_detector=use_cnn_face_detector)
+
+
+def load_dlib_detector_predictor_facerec(config):
+    dlib_detector = dlib.get_frontal_face_detector()
+    dlib_predictor = dlib.shape_predictor(config.SHAPE_PREDICTOR_PATH)
+    dlib_facerec = dlib.face_recognition_model_v1(config.FACE_REC_MODEL_PATH)
+    return dlib_detector, dlib_predictor, dlib_facerec
+
+
+def load_landmarks_detectors(load_2D=True, load_3D=True):
+
+    # Load dlib landmarks detector for 2D
+    if load_2D:
+        dlib_detector, dlib_predictor = utils.load_dlib_detector_and_predictor()
+    else:
+        dlib_detector, dlib_predictor = None, None
+
+    # Load LS3D-W landmarks detector for 3D
+    if load_3D:
+        face_alignment_object = utils.load_face_alignment_object(enable_cuda=config.ENABLE_CUDA)
+    else:
+        face_alignment_object = None
+
+    return dlib_detector, dlib_predictor, face_alignment_object
 
 
 def read_metadata(metadata_txt_file):
@@ -113,7 +139,7 @@ def make_rect_shape_square(rect):
     return [new_x, new_y, new_x + new_w, new_y + new_h]
 
 
-def square_expand_resize_face_and_modify_landmarks(frame, landmarks, resize_to_shape=(224, 224), face_square_expanded_resized=True):
+def get_square_expand_resize_face_and_modify_landmarks(frame, landmarks, resize_to_shape=(224, 224), face_square_expanded_resized=True):
 
     # Get face bounding box from landmarks
     # dlib.rectangle = left, top, right, bottom
@@ -125,7 +151,7 @@ def square_expand_resize_face_and_modify_landmarks(frame, landmarks, resize_to_s
         face_rect_square = make_rect_shape_square(face_rect)
 
         # Expand face bounding box to 1.5x
-        face_rect_square_expanded = utils.expand_rect(face_rect_square, scale=1.5, frame_shape=(frame.shape[0], frame.shape[1]))
+        face_rect_square_expanded = expand_rect(face_rect_square, scale=1.5, frame_shape=(frame.shape[0], frame.shape[1]))
 
     else:
         face_rect_square_expanded = [0, 0, frame.shape[1], frame.shape[0]]
@@ -218,6 +244,28 @@ def read_landmarks(language, actor, number, read_2D_dlib_or_3D=''):
 
 
 def read_landmarks_list_from_txt(path):
+    # Path points to a text file containing rows of [frame_name, [landmarks1], [[0, 0], [1, 1], [2, 2], ...], ...] (len = 1 + num_of_faces, each face landmarks len = 68)
+    # landmarks_list is returned as a list of frames - list of faces in each frame - list of landmarks in each face (68)
+    landmarks_list = []
+    translate_table = dict((ord(char), None) for char in '[],')
+    with open(path, "r") as f:
+        for line in f:
+            frame_landmarks_all = line.strip().split(" [[")[1:]
+            # Backward compatibility with previous format of only 1 landmark in frame: [frame_name, [0, 0], [1, 1], ...] (len = 69)
+            if frame_landmarks_all == []:
+                frame_landmarks_all = [" [".join(line.strip().split(" [")[1:])]
+            frame_landmarks = []
+            for lm in frame_landmarks_all:
+                person_landmarks = []
+                for l in lm.split(' ['):
+                    person_landmarks.append([int(e.translate(translate_table)) for e in l.split(" ")])
+                frame_landmarks.append(person_landmarks)
+            landmarks_list.append(frame_landmarks)
+    return landmarks_list
+
+
+"""
+def read_landmarks_list_from_txt(path):
     landmarks_list = []
     translate_table = dict((ord(char), None) for char in '[],')
     with open(path, "r") as f:
@@ -227,6 +275,17 @@ def read_landmarks_list_from_txt(path):
             landmarks = row[1:]
             landmarks_list.append([video_frame_name] + [[int(e.translate(translate_table)) for e in l.split(" ")] for l in landmarks])
     return landmarks_list
+"""
+
+
+def write_landmarks_list_as_txt(path, landmarks_list):
+    with open(path, "w") as f:
+        for frame_landmarks in landmarks_list:
+            line = ""
+            for landmark in frame_landmarks:
+                line += str(landmark) + " "
+            line = line[:-1] + "\n"
+            f.write(line)
 
 
 def watch_video(video_frames):
@@ -242,21 +301,18 @@ def watch_video(video_frames):
 
 
 def plot_2D_landmarks(image, landmarks, save_or_show='show', fig_name='a.png'):
+    # ONLY plt.imshow!! Need to execute plt.show() separately!
     frame = np.array(image)
     if frame.max() <= 1.:
         max_value = 1
     else:
         max_value = 255
     face_width = landmarks[:, 0].max() - landmarks[:, 0].min()
-    lm_width = np.ceil(face_width / 50)
+    lm_width = np.ceil(face_width / 60)
     for l, landmark in enumerate(landmarks):
         frame[int(landmark[1]-lm_width):int(landmark[1]+lm_width), int(landmark[0]-lm_width):int(landmark[0]+lm_width)] = max_value
     if save_or_show == 'show':
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
         plt.imshow(frame)
-        plt.show()
-        plt.close()
     elif save_or_show == 'save':
         cv2.imwrite(fig_name, frame)
 
