@@ -21,14 +21,15 @@ config = MovieTranslationConfig()
 
 def extract_person_face_frames(video_file, out_dir, person_name,
                                person_face_descriptor=None, person_face_image=None,
-                               dlib_detector=None, dlib_predictor=None, dlib_facerec=None,
+                               dlib_face_detector=None, dlib_shape_predictor=None, dlib_facerec=None,
                                cnn_face_detector_path=None, cnn_batch_size=128,
                                shape_predictor_path=None, face_rec_model_path=None,
                                check_for_face_every_nth_frame=10,
                                resize_to_shape=(256, 256),
                                overwrite_frames=False, overwrite_face_shapes=False,
                                save_faces=False,
-                               save_faces_combined_with_blackened_mouths_and_lip_polygons=True):
+                               save_faces_combined_with_blackened_mouths_and_lip_polygons=True,
+                               verbose=False):
     """!@brief Extracts all frames of video_file into the right dir in
     out_dir, detects faces in each frame, chooses the right face using a
     recognition model, saves the face and landmarks in the right dirs in
@@ -43,13 +44,13 @@ def extract_person_face_frames(video_file, out_dir, person_name,
 
     E.g.:
     -----
-    extract_person_face_frames('/shared/fusor/home/voleti.vikram/ANDREW_NG/pilot/old_dataset/videos/01_small.mp4',
-                               '/shared/fusor/home/voleti.vikram/ANDREW_NG/pilot/old_dataset/videos/a',
+    extract_person_face_frames('/shared/fusor/home/voleti.vikram/ANDREW_NG/videos/CV/02.C4W1L02 Edge Detection Examples.mp4',
+                               '/shared/fusor/home/voleti.vikram/ANDREW_NG/pilot/old_dataset/videos/b',
                                person_name='andrew_ng',
                                person_face_image='/shared/fusor/home/voleti.vikram/ANDREW_NG/andrew_ng.png',
                                shape_predictor_path='/shared/fusor/home/voleti.vikram/shape_predictor_68_face_landmarks.dat',
                                face_rec_model_path='/shared/fusor/home/voleti.vikram/dlib_face_recognition_resnet_model_v1.dat',
-                               overwrite_frames=True, overwrite_face_shapes=True, save_faces=True)
+                               overwrite_frames=True, overwrite_face_shapes=True, save_faces=True, verbose=True)
     
     @param video_file Name of the video file whose frames and faces are to be
     extracted, for e.g. '/shared/fusor/home/voleti.vikram/ANDREW_NG/videos/1.mp4'
@@ -71,7 +72,7 @@ def extract_person_face_frames(video_file, out_dir, person_name,
     mmod_human_face_detector.dat, which can be downloaded from
     http://dlib.net/files/mmod_human_face_detector.dat.bz2
 
-    @param dlib_predictor dlib.shape_predictor(shape_predictor_path); provide this or
+    @param dlib_shape_predictor dlib.shape_predictor(shape_predictor_path); provide this or
     <shape_predictor_path>, providing this is useful in case of running this function on
     multiple <video_file>s in a loop; <shape_predictor_path> should point to
     shape_predictor_68_face_landmarks.dat or shape_predictor_5_face_landmarks.dat, which
@@ -179,9 +180,6 @@ def extract_person_face_frames(video_file, out_dir, person_name,
     #    |    - <video_file_name>_landmarks_in_face_frames_<person_name_1>.txt
     #    |    - <video_file_name>_landmarks_in_face_frames_<person_name_2>.txt
 
-    if profile_time:
-        start_time = time.time()
-
     # dlib face detector
     if dlib_face_detector is None:
         if cnn_face_detector_path is None:
@@ -233,18 +231,16 @@ def extract_person_face_frames(video_file, out_dir, person_name,
         os.makedirs(frames_dir)
 
     # Face frames dir
-    if save_faces:
-        faces_dir = os.path.join(out_dir, 'faces', video_file_name, person_name)
-        if not os.path.exists(faces_dir):
-            print("Making dir", faces_dir)
-            os.makedirs(faces_dir)
+    faces_dir = os.path.join(out_dir, 'faces', video_file_name, person_name)
+    if save_faces and not os.path.exists(faces_dir):
+        print("Making dir", faces_dir)
+        os.makedirs(faces_dir)
 
     # Combined faces dir : for pic of face + face_with_black_mouth_polygon
-    if save_faces_combined_with_blackened_mouths_and_lip_polygons:
-        faces_combined_dir = os.path.join(out_dir, 'faces_combined', video_file_name, person_name)
-        if not os.path.exists(faces_combined_dir):
-            print("Making dir", faces_combined_dir)
-            os.makedirs(faces_combined_dir)
+    faces_combined_dir = os.path.join(out_dir, 'faces_combined', video_file_name, person_name)
+    if save_faces_combined_with_blackened_mouths_and_lip_polygons and not os.path.exists(faces_combined_dir):
+        print("Making dir", faces_combined_dir)
+        os.makedirs(faces_combined_dir)
 
     # All persons' face shapes in frames dir
     face_shapes_in_frames_all_persons_dir = os.path.join(out_dir, 'face_shapes_in_frames_all_persons')
@@ -282,7 +278,7 @@ def extract_person_face_frames(video_file, out_dir, person_name,
         save_frames = True
     else:
         print("Reading frames from", frames_dir)
-        video_frames = glob.glob(os.path.join(frames_dir, video_file_name, '*'))
+        video_frames_reader = glob.glob(os.path.join(frames_dir, video_file_name, '*'))
         save_frames = False
 
     # DETECT FACES
@@ -307,7 +303,7 @@ def extract_person_face_frames(video_file, out_dir, person_name,
         detect_face_shapes = False
 
         # For each frame
-        for frame_number, frame in enumerate(tqdm(video_frames)):
+        for frame_number, frame in enumerate(tqdm(video_frames_reader)):
 
             # Read frame if not from video
             if not save_frames:
@@ -329,12 +325,14 @@ def extract_person_face_frames(video_file, out_dir, person_name,
 
             # If person's face is not present, and was not present in previous batch - reset and continue
             if person_landmarks_in_frame_10 is None and not detect_face_shapes:
-                batch_frame_numbers []
-                batch_frames = []
-                continue
+                if verbose:
+                    print("\nNo person face detected in 10th frame of batch\n")
+                detect_face_shapes = False
 
             # Else if person's face is not present, but was present in previous batch - detect faces for all frames in batch, and deactivate detect_face_shapes
             elif person_landmarks_in_frame_10 is None and detect_face_shapes:
+                if verbose:
+                    print("\nNo person face detected in 10th frame of batch, but was in prev_batch, so running\n")
                 for batch_frame_number, batch_frame in zip(batch_frame_numbers, batch_frames):
                     face_shapes_in_frames_all_persons, \
                     person_frames_landmarks, \
@@ -351,9 +349,12 @@ def extract_person_face_frames(video_file, out_dir, person_name,
                                                                           resize_to_shape=resize_to_shape,
                                                                           person_faces_landmarks=person_faces_landmarks)
                 detect_face_shapes = False
+                
 
             # Else if person's face is present, detect faces for all frames in batch, and activate detect_face_shapes
             elif person_landmarks_in_frame_10 is not None:
+                if verbose:
+                    print("\nPerson face detected in 10th frame of batch, running\n")
                 for batch_frame_number, batch_frame in zip(batch_frame_numbers, batch_frames):
                     face_shapes_in_frames_all_persons, \
                     person_frames_landmarks, \
@@ -370,6 +371,10 @@ def extract_person_face_frames(video_file, out_dir, person_name,
                                                                           resize_to_shape=resize_to_shape,
                                                                           person_faces_landmarks=person_faces_landmarks)
                 detect_face_shapes = True
+
+            # Reset batch_frame_numbers and batch_frames
+            batch_frame_numbers = []
+            batch_frames = []
     
     except KeyboardInterrupt:
         # Clean exit by saving face shapes and landmarks
@@ -408,10 +413,6 @@ def detect_person_face_and_shape(frame, frame_number, video_file_name, person_na
     if save_faces_combined_with_blackened_mouths_and_lip_polygons:
         video_face_combined_name = os.path.join(faces_combined_dir, video_face_combined_base_name)
 
-    if profile_time:
-        load_frame_time = time.time()
-        load_frame_dur.append(load_frame_time - loop_end_time)
-
     # Extract all face shapes in frame
     face_shapes_in_frame = utils.get_all_face_shapes(frame, dlib_face_detector, dlib_shape_predictor)
 
@@ -421,12 +422,8 @@ def detect_person_face_and_shape(frame, frame_number, video_file_name, person_na
     # Get person's face shape if face is present
     person_landmarks_in_frame = get_person_face_lm_from_face_shapes(frame, face_shapes_in_frame, person_face_descriptor, dlib_facerec)
     
-    # If person's face is not present
-    if person_landmarks_in_frame is None:
-       person_frames_landmarks.append([video_frame_name] + [])
-
     # If person's face is present
-    else:
+    if person_landmarks_in_frame is not None:
 
         # Save the frame
         if save_frames:

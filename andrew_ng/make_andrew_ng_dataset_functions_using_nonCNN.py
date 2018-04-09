@@ -21,7 +21,7 @@ config = MovieTranslationConfig()
 
 def extract_person_face_frames(video_file, out_dir, person_name,
                                person_face_descriptor=None, person_face_image=None,
-                               dlib_detector=None, dlib_predictor=None, dlib_facerec=None,
+                               dlib_face_detector=None, dlib_shape_predictor=None, dlib_facerec=None,
                                cnn_face_detector_path=None, shape_predictor_path=None, face_rec_model_path=None,
                                resize_to_shape=(256, 256),
                                overwrite_frames=False, overwrite_face_shapes=False,
