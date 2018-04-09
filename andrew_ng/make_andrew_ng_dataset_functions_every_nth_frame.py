@@ -30,11 +30,11 @@ def extract_person_face_frames(video_file, out_dir, person_name,
                                save_faces=False,
                                save_faces_combined_with_blackened_mouths_and_lip_polygons=True,
                                verbose=False):
-    """!@brief Extracts all frames of video_file into the right dir in
-    out_dir, detects faces in each frame, chooses the right face using a
-    recognition model, saves the face and landmarks in the right dirs in
-    out_dir, (optional) combines face with black mouth polygon and saves
-    that in the right dir in out_dir
+    """!@brief Reads frames, checks for person in every 10th frame; if person is present,
+    processes all 10 frames for landmarks - detects faces in each frame, chooses the right
+    face using dlib's recognition model, saves the frame, face, and landmarks in the right
+    dirs in out_dir, (optional) combines face with black mouth polygon and saves that in
+    the right dir in out_dir
     
     The right face is chosen using either "person_face_image" or
     "person_face_descriptor" as reference, and using the shape predictor
