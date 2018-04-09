@@ -243,6 +243,7 @@ def read_landmarks(language, actor, number, read_2D_dlib_or_3D=''):
         return read_landmarks_list_from_txt(landmarks_file)
 
 
+"""
 def read_landmarks_list_from_txt(path):
     # Path points to a text file containing rows of [frame_name, [landmarks1], [[0, 0], [1, 1], [2, 2], ...], ...] (len = 1 + num_of_faces, each face landmarks len = 68)
     # landmarks_list is returned as a list of frames - list of faces in each frame - list of landmarks in each face (68)
@@ -254,17 +255,18 @@ def read_landmarks_list_from_txt(path):
             # Backward compatibility with previous format of only 1 landmark in frame: [frame_name, [0, 0], [1, 1], ...] (len = 69)
             if frame_landmarks_all == []:
                 frame_landmarks_all = [" [".join(line.strip().split(" [")[1:])]
-            frame_landmarks = []
-            for lm in frame_landmarks_all:
-                person_landmarks = []
-                for l in lm.split(' ['):
-                    person_landmarks.append([int(e.translate(translate_table)) for e in l.split(" ")])
-                frame_landmarks.append(person_landmarks)
-            landmarks_list.append(frame_landmarks)
+            if len(frame_landmarks_all):
+                frame_landmarks = []
+                for lm in frame_landmarks_all:
+                    person_landmarks = []
+                    for l in lm.split(' ['):
+                        person_landmarks.append([int(e.translate(translate_table)) for e in l.split(" ")])
+                    frame_landmarks.append(person_landmarks)
+                landmarks_list.append(frame_landmarks)
     return landmarks_list
-
-
 """
+
+
 def read_landmarks_list_from_txt(path):
     landmarks_list = []
     translate_table = dict((ord(char), None) for char in '[],')
@@ -275,7 +277,6 @@ def read_landmarks_list_from_txt(path):
             landmarks = row[1:]
             landmarks_list.append([video_frame_name] + [[int(e.translate(translate_table)) for e in l.split(" ")] for l in landmarks])
     return landmarks_list
-"""
 
 
 def write_landmarks_list_as_txt(path, landmarks_list):
