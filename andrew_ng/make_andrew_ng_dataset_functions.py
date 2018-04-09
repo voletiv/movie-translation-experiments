@@ -22,7 +22,9 @@ config = MovieTranslationConfig()
 def extract_person_face_frames(video_file, out_dir, person_name,
                                person_face_descriptor=None, person_face_image=None,
                                dlib_detector=None, dlib_predictor=None, dlib_facerec=None,
-                               cnn_face_detector_path=None, shape_predictor_path=None, face_rec_model_path=None,
+                               cnn_face_detector_path=None, cnn_batch_size=128,
+                               shape_predictor_path=None, face_rec_model_path=None,
+                               check_for_face_every_nth_frame=10,
                                resize_to_shape=(256, 256),
                                overwrite_frames=False, overwrite_face_shapes=False,
                                save_faces=False,
@@ -221,7 +223,7 @@ def extract_person_face_frames(video_file, out_dir, person_name,
     # video_file_name
     video_file_split = video_file.split('/')
     videos_index = video_file_split.index('videos')
-    video_file_name = os.path.splitext('_'.join(video_file_split[videos_index+1:]))[0]
+    video_file_name = os.path.splitext('_'.join(video_file_split[videos_index+1:]))[0].replace(" ", "_")
     print("VIDEO_FILE_NAME:", video_file_name)
 
     # Frames dir
@@ -264,11 +266,13 @@ def extract_person_face_frames(video_file, out_dir, person_name,
 
     # To save shapes and landmarks
     face_shapes_in_frames_all_persons = []
-    person_frame_landmarks = []
-    person_face_landmarks = []
+    person_frames_landmarks = []
+    person_faces_landmarks = []
     face_shapes_in_frames_all_persons_pkl_file_name = os.path.join(face_shapes_in_frames_all_persons_dir, video_file_name + '_face_shapes_in_frames_all_persons.pkl')
     landmarks_in_frames_person_txt_file_name = os.path.join(landmarks_in_frames_person_dir, video_file_name + '_landmarks_in_frames_' + person_name + '.txt')
     landmarks_in_faces_person_txt_file_name = os.path.join(landmarks_in_faces_person_dir, video_file_name + '_landmarks_in_faces_' + person_name + '.txt')
+
+    # READ VIDEO
 
     # Read video - if need to overwrite, or if no sample frame is present
     sample_frame = os.path.join(frames_dir, video_file_name, video_file_name + '_frame_00000.png')
@@ -276,13 +280,29 @@ def extract_person_face_frames(video_file, out_dir, person_name,
         print("Reading video", video_file)
         video_frames_reader = imageio.get_reader(video_file)
         video_frames = []
-        for frame in video_frames_reader:
+        
+        # Write frames
+        for frame_number, frame in enumerate(tqdm(video_frames_reader, total=len(video_frames_reader))):
             video_frames.append(frame)
-        save_frames = True
+            video_frame_base_name = video_file_name + "_frame_{0:05d}.png".format(frame_number)
+            video_frame_name = os.path.join(frames_dir, video_frame_base_name)
+            imageio.imwrite(video_frame_name, frame)
+
     else:
         print("Reading frames from", frames_dir)
         video_frames = glob.glob(os.path.join(frames_dir, video_file_name, '*'))
         save_frames = False
+
+    # DETECT FACES
+
+    def convert_to_rect(cnn_output):
+        return cnn_output.rect
+
+    # Bulk detect faces in frames
+    for i in range(0, len(video_frames), batch_size):
+        batch_frames = video_frames[i:i+batch_size]
+        batch_faces = cnn_face_detector(batch_frames, 1, batch_size=len(images))
+        batch_face_rects = list(map(convert_to_rect, batch_faces))
 
     # To detect face shapes or not
     if overwrite_face_shapes or not os.path.exists(face_shapes_in_frames_all_persons_pkl_file_name):
@@ -296,7 +316,7 @@ def extract_person_face_frames(video_file, out_dir, person_name,
     if profile_time:
         init_time = time.time()
         loop_end_time = init_time
-        save_frame_dur = []
+        load_frame_dur = []
         detect_face_shapes_dur = []
         get_person_lm_dur = []
         get_modified_face_dur = []
@@ -306,9 +326,74 @@ def extract_person_face_frames(video_file, out_dir, person_name,
 
     try:
 
+        # Check for face only every 10th frame
+        # Meanwhile, save the 10 frames of a batch in an array
+        # If 10th frame has face, or prev_batch had face, check for facial landmarks, etc.
+        # in all frames of batch
+        batch_frame_numbers = []
+        batch_frames = []
+        detect_face_shapes = False
+
         # For each frame
         for frame_number, frame in enumerate(tqdm(video_frames)):
-    
+
+            # Till frame_number+1 % 10 == 0, only save the frames
+            if (frame_number + 1) % check_for_face_every_nth_frame != 0:
+                batch_frame_numbers.append(frame_number)
+                batch_frames.append(frame)
+                continue
+
+            # At the 10th frame
+            batch_frame_numbers.append(frame_number)
+            batch_frames.append(frame)
+
+            # Check if 10th frame has faces
+            face_shapes_in_frame_10 = utils.get_all_face_shapes(frame, dlib_face_detector, dlib_shape_predictor)
+            person_landmarks_in_frame_10 = get_person_face_lm_from_face_shapes(frame, face_shapes_in_frame_10, person_face_descriptor, dlib_facerec)
+
+            # If person's face is not present, and was not present in previous batch - do nothing, continue
+            if person_landmarks_in_frame_10 is None and not detect_face_shapes:
+                continue
+
+            # Else if person's face is not present, but was present in previous batch - detect faces for all frames in batch, and deactivate detect_face_shapes
+            elif person_landmarks_in_frame_10 is None and detect_face_shapes:
+                person_frames_landmarks, person_faces_landmarks = detect_faces_and_shapes(batch_frames, batch_frame_numbers,
+                                                                                          video_file_name=video_file_name, person_name=person_name,
+                                                                                          save_frames=save_frames, frames_dir=frames_dir,
+                                                                                          save_faces=save_faces, faces_dir=faces_dir,
+                                                                                          save_faces_combined_with_blackened_mouths_and_lip_polygons=save_faces_combined_with_blackened_mouths_and_lip_polygons,
+                                                                                          faces_combined_dir=faces_combined_dir,
+                                                                                          dlib_face_detector=dlib_face_detector, dlib_shape_predictor=dlib_shape_predictor,
+                                                                                          person_face_descriptor=person_face_descriptor, dlib_facerec=dlib_facerec,
+                                                                                          person_frames_landmarks=person_frames_landmarks,
+                                                                                          resize_to_shape=resize_to_shape,
+                                                                                          person_faces_landmarks=person_faces_landmarks)
+                detect_face_shapes = False
+
+            # Else if person's face is present, detect faces for all frames in batch, and activate detect_face_shapes
+            elif person_landmarks_in_frame_10 is not None:
+                person_frames_landmarks, person_faces_landmarks = detect_faces_and_shapes(batch_frames, batch_frame_numbers,
+                                                                                          video_file_name=video_file_name, person_name=person_name,
+                                                                                          save_frames=save_frames, frames_dir=frames_dir,
+                                                                                          save_faces=save_faces, faces_dir=faces_dir,
+                                                                                          save_faces_combined_with_blackened_mouths_and_lip_polygons=save_faces_combined_with_blackened_mouths_and_lip_polygons,
+                                                                                          faces_combined_dir=faces_combined_dir,
+                                                                                          dlib_face_detector=dlib_face_detector, dlib_shape_predictor=dlib_shape_predictor,
+                                                                                          person_face_descriptor=person_face_descriptor, dlib_facerec=dlib_facerec,
+                                                                                          person_frames_landmarks=person_frames_landmarks,
+                                                                                          resize_to_shape=resize_to_shape,
+                                                                                          person_faces_landmarks=person_faces_landmarks)
+                detect_face_shapes = True
+
+
+def detect_faces_and_shapes(batch_frames, batch_frame_numbers, video_file_name, person_name,
+                            save_frames, frames_dir, save_faces, faces_dir,
+                            save_faces_combined_with_blackened_mouths_and_lip_polygons, faces_combined_dir,
+                            dlib_face_detector, dlib_shape_predictor,
+                            person_face_descriptor, dlib_facerec,
+                            person_frames_landmarks, resize_to_shape,
+                            person_faces_landmarks):
+
             # Image names
             video_frame_base_name = video_file_name + "_frame_{0:05d}.png".format(frame_number)
             if save_frames:
@@ -320,25 +405,21 @@ def extract_person_face_frames(video_file, out_dir, person_name,
             if save_faces_combined_with_blackened_mouths_and_lip_polygons:
                 video_face_combined_name = os.path.join(faces_combined_dir, video_face_combined_base_name)
     
-            # If overwrite_frame == True, or if no frames have been saved yet
-            if save_frames:
-                imageio.imwrite(video_frame_name, frame)
-   
             if profile_time:
-                save_frame_time = time.time()
-                save_frame_dur.append(save_frame_time - loop_end_time)
+                load_frame_time = time.time()
+                load_frame_dur.append(load_frame_time - loop_end_time)
  
             # Extract all face shapes in the frame, if not done already
-            if detect_face_shapes:
+            # if detect_face_shapes:
     
-                # Extract all face shapes in frame
-                face_shapes_in_frame = utils.get_all_face_shapes(frame, dlib_face_detector, dlib_shape_predictor)
+            # Extract all face shapes in frame
+            face_shapes_in_frame = utils.get_all_face_shapes(frame, dlib_face_detector, dlib_shape_predictor)
+
+            # Append to list of face shapes in frames
+            face_shapes_in_frames_all_persons.append([video_frame_base_name] + face_shapes_in_frame)
     
-                # Append to list of face shapes in frames
-                face_shapes_in_frames_all_persons.append([video_frame_base_name] + face_shapes_in_frame)
-    
-            else:
-                face_shapes_in_frame = face_shapes_in_frames_all_persons[f]
+            # else:
+            #     face_shapes_in_frame = face_shapes_in_frames_all_persons[f]
 
             if profile_time:
                 detect_face_shapes_time = time.time()
@@ -353,9 +434,13 @@ def extract_person_face_frames(video_file, out_dir, person_name,
 
             # If person's face is present
             if person_landmarks_in_frame is not None:
-    
+
+                # Save the frame
+                if save_frames:
+                    imageio.imwrite(video_frame_name, frame)
+ 
                 # Save the landmark coordinates w.r.t. the full frame
-                person_frame_landmarks.append([video_frame_base_name] + [list(l) for l in person_landmarks_in_frame])
+                person_frames_landmarks.append([video_frame_base_name] + [list(l) for l in person_landmarks_in_frame])
     
                 # Get the face frame - square, expanded, resized
                 face_square_expanded_resized, landmarks_in_face_square_expanded_resized = utils.get_square_expand_resize_face_and_modify_landmarks(frame, person_landmarks_in_frame,
@@ -367,7 +452,7 @@ def extract_person_face_frames(video_file, out_dir, person_name,
                     get_modified_face_dur.append(get_modified_face_time - get_person_lm_time)    
 
                 # Note the landmark coordinates w.r.t. the face_frame
-                person_face_landmarks.append([video_face_base_name] + [list(l) for l in landmarks_in_face_square_expanded_resized])
+                person_faces_landmarks.append([video_face_base_name] + [list(l) for l in landmarks_in_face_square_expanded_resized])
     
                 # Save the face image
                 if save_faces:
@@ -389,12 +474,14 @@ def extract_person_face_frames(video_file, out_dir, person_name,
 
             # Else if person's face is not present
             else:
-               person_frame_landmarks.append([video_frame_name] + [])
+               person_frames_landmarks.append([video_frame_name] + [])
 
             if profile_time:
                 current_loop_end_time = time.time()
                 loop_dur.append(current_loop_end_time - loop_end_time)
                 loop_end_time = current_loop_end_time
+
+            return person_frames_landmarks, person_faces_landmarks
 
     except KeyboardInterrupt:
         # Clean exit by saving face shapes and landmarks
@@ -427,7 +514,7 @@ def extract_person_face_frames(video_file, out_dir, person_name,
         save_stuff_dur = save_stuff_time - loop_end_time
         print("init_dur                    : {0:.04f} seconds".format(init_dur))
         print("----------------------------------------------")
-        print("save_frame_dur_avg          : {0:.04f} seconds".format(save_frame_dur_avg))
+        print("load_frame_dur_avg          : {0:.04f} seconds".format(load_frame_dur_avg))
         print("detect_face_shapes_dur_avg  : {0:.04f} seconds".format(detect_face_shapes_dur_avg))
         print("get_person_lm_dur_avg       : {0:.04f} seconds".format(get_person_lm_dur_avg))
         print("get_modified_face_dur_avg   : {0:.04f} seconds".format(get_modified_face_dur_avg))
