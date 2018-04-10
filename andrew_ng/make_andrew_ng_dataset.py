@@ -1,12 +1,12 @@
-from make_andrew_ng_dataset_functions import *
+from make_andrew_ng_dataset_functions_every_nth_frame import *
 
 ANDREW_NG_DIR = '/shared/fusor/home/voleti.vikram/ANDREW_NG/'
 
 # for vid_dir in glob.glob(os.path.join(ANDREW_NG_DIR, 'videos', '*/')):
 
-for vid in sorted(glob.glob(os.path.join(ANDREW_NG_DIR, 'videos', 'CV', '*'))):
+for vid in sorted(glob.glob(os.path.join(ANDREW_NG_DIR, 'videos', 'CV', '*.mp4'))):
     extract_person_face_frames(vid,
-                               out_dir='/shared/fusor/home/voleti.vikram/ANDREW_NG/',
+                               out_dir=ANDREW_NG_DIR,
                                person_name='andrew_ng', person_face_image='/shared/fusor/home/voleti.vikram/ANDREW_NG/andrew_ng.png',
                                shape_predictor_path='/shared/fusor/home/voleti.vikram/shape_predictor_68_face_landmarks.dat',
                                face_rec_model_path='/shared/fusor/home/voleti.vikram/dlib_face_recognition_resnet_model_v1.dat',
