@@ -3,7 +3,8 @@ import imageio
 import numpy as np
 import os
 import subprocess
-import scipy.io.wavefile
+import scipy.io.wavfile
+import speechpy
 
 from tqdm import tqdm
 
@@ -48,7 +49,7 @@ def dynamic_programming(source, target):
         C[0, j] = j * init_cost
 
     # Decider
-    M = np.zeros((len(source), len(input_y)))
+    M = np.zeros((len(source), len(target)))
     
     # Compute cost and note the probable case
     for i in tqdm(range(1, len(source)+1)):
@@ -114,12 +115,13 @@ def align_new_audio_to_video(source_video, target_dialogue, new_video_name, verb
     # Convert video's audio into a .wav file
     if verbose:
         print("Writing source video's audio as /tmp/audio.wav")
-    subprocess.call(['ffmpeg', '-i', source_video, '-codec:a', 'pcm_s16le', '-ac', '1', '/tmp/audio.wav'])
+    ret = subprocess.call(['ffmpeg', '-loglevel', 'error', '-i', source_video, '-y', '-codec:a', 'pcm_s16le', '-ac', '1', '/tmp/audio.wav'])
     # Read the .wav file
     if verbose:
         print("Reading source video's audio - /tmp/audio.wav")
     source_audio_fs, source_audio = scipy.io.wavfile.read('/tmp/audio.wav')
-    source_audio = source_audio[:, 0]
+    if len(source_audio.shape) > 1:
+        source_audio = source_audio[:, 0]
     
     # READ TARGET AUDIO
     # Check file type
@@ -129,13 +131,14 @@ def align_new_audio_to_video(source_video, target_dialogue, new_video_name, verb
         if verbose:
             print("Target dialogue not a .wav file! Given:", target_dialogue)
             print("Converting target dialogue file into .wav - /tmp/audio.wav")
-        subprocess.call(['ffmpeg', '-i', target_dialogue, '-codec:a', 'pcm_s16le', '-ac', '1', '/tmp/audio.wav'])
+        ret = subprocess.call(['ffmpeg', '-loglevel', 'error', '-i', target_dialogue, '-y', '-codec:a', 'pcm_s16le', '-ac', '1', '/tmp/audio.wav'])
         target_dialogue = '/tmp/audio.wav'
     # Read the target .wav file
     if verbose:
         print("Reading target audio", target_dialogue)
     target_audio_fs, target_audio = scipy.io.wavfile.read(target_dialogue)
-    target_audio = target_audio[:, 0]
+    if len(target_audio.shape) > 1:
+        target_audio = target_audio[:, 0]
     
     # EXTRACT MFCC FEATURES
     frame_length = 0.025
@@ -170,7 +173,7 @@ def align_new_audio_to_video(source_video, target_dialogue, new_video_name, verb
     # Make a linear mapping from the target audio frames to target video frames
     target_audio_frames_idx_of_target_video_frames = np.round(np.linspace(0,
                                                                           len(target_audio_mfcc)-1,
-                                                                          num_of_video_frames)).astype(int)
+                                                                          num_of_target_video_frames)).astype(int)
     # Select the source video frames corresponding to each target video frame
     mapped_source_video_frames_of_target_video_frames = np.floor(mapped_source_video_frames_of_target_audio_frames[target_audio_frames_idx_of_target_video_frames]).astype(int)
     
@@ -202,7 +205,7 @@ def align_new_audio_to_video(source_video, target_dialogue, new_video_name, verb
                '-vcodec', 'libx264', '-preset', 'ultrafast', '-profile:v', 'main',
                '-acodec', 'aac', '-strict', '-2',
                new_video_name]
-    subprocess.call(command)
+    ret = subprocess.call(command)
     
     if verbose:
         print("Done!")
@@ -210,13 +213,14 @@ def align_new_audio_to_video(source_video, target_dialogue, new_video_name, verb
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='Exchange dialogues between 2 videos in the MOVIE_TRANSLATION dataset. E.g.: python align_new_audio_to_video.py source_video.mp4 target_audio.mp3 new_video.mp4')
+    parser = argparse.ArgumentParser(description='Make new video with frames from source_video and audio from target_audio, by changing frames to match targe_audio. E.g.: python align_new_audio_to_video.py source_video.mp4 target_audio.mp3 new_video.mp4')
     parser.add_argument('source_video', type=str, help="name of source video, a .mp4 file: eg. 'source_video.mp4'")
     parser.add_argument('target_audio', type=str, help="name of target audio, a .wav or .mp3 file: eg. 'source_audio.mp3', or 'source_audio.wav'")
-    parser.add_argument('new_video_name', type=int, help="name of new video, a .mp4 file: eg. 'new_video.mp4'")
+    parser.add_argument('new_video_name', type=str, help="name of new video, a .mp4 file: eg. 'new_video.mp4'")
     parser.add_argument('--verbose', '-v', action="store_true", help="verbose")
 
     args = parser.parse_args()
+    print(args)
 
-    align_new_audio_to_video(source_video, target_audio, new_video_name, verbose)
+    align_new_audio_to_video(args.source_video, args.target_audio, args.new_video_name, args.verbose)
 
