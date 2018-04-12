@@ -4,11 +4,11 @@
 
 Example run of `extract_video_clips_via_VAD.py`:
 
-`python3 extract_video_clips_via_VAD.py /path/to/video_file.mp4 [-o /path/to/video/clips/output/] [-a /path/to/the/extracted/audio/of/video/hopefully/after/speech/isolation.wav] [--aggressiveness 2] [--verbose 1]`
+`python2 extract_video_clips_via_VAD.py /path/to/video_file.mp4 [-o /path/to/video/clips/output/] [-a /path/to/the/extracted/audio/of/video/hopefully/after/speech/isolation.wav] [--aggressiveness 2] [--verbose 1]`
 
 or:
 
-`python3 extract_video_clips_via_VAD.py /path/to/video_file.mp4 [-o /path/to/video/clips/output/] [-a /dir/to/save/audio/extracted/from/video/] [--aggressiveness 2] [--verbose 1]`
+`python2 extract_video_clips_via_VAD.py /path/to/video_file.mp4 [-o /path/to/video/clips/output/] [-a /dir/to/save/audio/extracted/from/video/] [--aggressiveness 2] [--verbose 1]`
 
 Right now, `extract_video_clips_via_VAD.py` conducts the following steps:
 
