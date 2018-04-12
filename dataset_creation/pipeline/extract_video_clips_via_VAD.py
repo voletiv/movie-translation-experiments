@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import argparse
 import collections
 import contextlib
@@ -45,9 +47,8 @@ def parse_args():
         '-v',
         '--verbose',
         dest='verbose',
-        help='verbose or not: 1 or 0; Default: 0',
-        default=0,
-        type=int
+        help='verbose or not',
+        action='store_true'
     )
     if len(sys.argv) == 1:
         parser.print_help()
@@ -207,7 +208,7 @@ def extract_audio_from_video(args):
     try:
         # Extract audio using ffmpeg
         # If audio file path is not mentioned, extract audio from video
-        if args.audio_file_path is '/tmp/my_audio.wav':
+        if args.audio_file_path == '/tmp/my_audio.wav':
             print("Extracting audio from video using ffmpeg")
             subprocess.call(['ffmpeg', '-loglevel', 'warning', '-i', args.video_file_path, '-y', '-vn', '-ar', str(16000), '-ac', str(1), '-f', 'wav', '/tmp/my_audio.wav'])
         # Else, make audio 16kHz and 1-channel
@@ -256,7 +257,9 @@ def main(args):
     #     writer = csv.writer(f)
     #     writer.writerows(details)
     # Write as txt
-    with open(os.path.join(args.video_output_path, os.path.splitext(os.path.basename(args.video_file_path))[0]) + ".txt", "w") as f:
+    text_file_name = os.path.join(args.video_output_path, os.path.splitext(os.path.basename(args.video_file_path))[0]) + ".txt"
+    print("Writing text file", text_file_name)
+    with open(text_file_name, "w") as f:
         for row in details:
             line = ""
             for e in row:
@@ -272,7 +275,7 @@ def assert_args(args):
         # Assert video_file_path exists
         assert os.path.exists(args.video_file_path), ("Input file does not exist! Got: " + args.video_file_path)
         # Assert video_file_path is mp4
-        assert os.path.splitext(args.video_file_path)[-1] == '.mp4', ("Video file must be .mp4! Got: " + args.video_file_path)
+        assert os.path.splitext(args.video_file_path)[-1] == '.mp4' or os.path.splitext(args.video_file_path)[-1] == '.MP4', ("Video file must be .mp4! Got: " + args.video_file_path)
         # Assert audio_file_path is wav
         assert os.path.splitext(args.audio_file_path)[-1] == '.wav', ("audio_file_path must be a .wav file! Got: " + args.audio_file_path)
     except AssertionError as error:
@@ -287,6 +290,6 @@ if __name__ == '__main__':
     # print(args)
     # Assert the arguments
     assert_args(args)
-    # print(args)
+    print(args)
     # Do your thang
     main(args)
