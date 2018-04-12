@@ -14,25 +14,17 @@ import webrtcvad
 def parse_args():
     parser = argparse.ArgumentParser(description='To extract video clips based on Voice Activity Detection')
     parser.add_argument(
-        'video_file_path',
-        help='path to video file (/path/to/video_file.mp4)',
+        'input_file_path',
+        help='path to input file (/path/to/video_file.mp4 or /path/to/audio_file.mp3)',
         default=None,
         type=str
     )
     parser.add_argument(
         '-o',
         '--output-dir',
-        dest='video_output_path',
-        help='output directory for saving clips. Default: same directory as input video',
+        dest='output_path',
+        help='output directory for saving clips. Default: same directory as input',
         default='same',
-        type=str
-    )
-    parser.add_argument(
-        '-a',
-        '--audio_file_path',
-        dest='audio_file_path',
-        help='.wav file path of audio, or to save audio extracted from video. Default: /tmp/my_audio.wav',
-        default='/tmp/my_audio.wav',
         type=str
     )
     parser.add_argument(
@@ -204,23 +196,17 @@ def vad_collector(sample_rate, frame_duration_ms,
         yield b''.join([f.bytes for f in voiced_frames]), str(speech_start_time), str(speech_duration)
 
 
-def extract_audio_from_video(args):
+def extract_wav_from_input(input_file_path):
     try:
-        # Extract audio using ffmpeg
-        # If audio file path is not mentioned, extract audio from video
-        if args.audio_file_path == '/tmp/my_audio.wav':
-            print("Extracting audio from video using ffmpeg")
-            subprocess.call(['ffmpeg', '-loglevel', 'warning', '-i', args.video_file_path, '-y', '-vn', '-ar', str(16000), '-ac', str(1), '-f', 'wav', '/tmp/my_audio.wav'])
-        # Else, make audio 16kHz and 1-channel
-        else:
-            print("Extracting 1-channel audio from audio_file_path using ffmpeg")
-            subprocess.call(['ffmpeg', '-loglevel', 'warning', '-i', args.audio_file_path, '-y', '-ar', str(16000), '-ac', str(1), '-f', 'wav', '/tmp/my_audio.wav'])
+        # Extract .wav audio using ffmpeg
+        print("Extracting audio using ffmpeg from:", input_file_path)
+        subprocess.call(['ffmpeg', '-loglevel', 'warning', '-i', input_file_path, '-y', '-vn', '-ar', str(16000), '-ac', str(1), '-f', 'wav', '/tmp/my_audio.wav'])
     except Exception as e:
         print("\nERROR! ffmpeg:", e, "Exiting.\n")
         sys.exit(1)
 
 
-def extract_speech_segments_from_audio(args):
+def extract_speech_segments_from_audio(verbose):
     # Read audio
     audio, sample_rate = read_wave('/tmp/my_audio.wav')
     # Make VAD object
@@ -228,36 +214,57 @@ def extract_speech_segments_from_audio(args):
     # Collect speech segments
     frames = frame_generator(30, audio, sample_rate)
     frames = list(frames)
-    segments = vad_collector(sample_rate, 30, 300, vad, frames, args.verbose)
+    segments = vad_collector(sample_rate, 30, 300, vad, frames, verbose)
     # Yield segments = (speech, speech_start_time, speech_duration)
     return segments
 
 
 def main(args):
+
     # Extract audio of video, and save in tmp
     # audio_file_name = '/tmp/my_audio.wav'
-    extract_audio_from_video(args)
+    extract_wav_from_input(args.input_file_path)
+
     # Extract speech segments from audio
-    segments = extract_speech_segments_from_audio(args)
+    segments = extract_speech_segments_from_audio(args.verbose)
+
     # Write video segments
     details = []
+    input_format = os.path.splitext(args.input_file_path)[-1]
+
     for i, (speech, speech_start_time, speech_duration) in enumerate(segments):
+
         # path = 'chunk-%002d.wav' % (i,)
-        video_file_output_path = os.path.join(args.video_output_path, os.path.splitext(os.path.basename(args.video_file_path))[0] + "_{0:04d}.mp4".format(i))
-        details.append([video_file_output_path, speech_start_time, speech_duration])
-        print("Using ffmpeg, writing segment from", speech_start_time, "seconds for", speech_duration, "seconds as", video_file_output_path)
-        command = ['ffmpeg', '-loglevel', 'warning', '-ss', speech_start_time, '-i', args.video_file_path, '-t', speech_duration, '-y',
-                   '-vcodec', 'libx264', '-preset', 'ultrafast', '-profile:v', 'main', '-acodec', 'aac', '-strict', '-2', video_file_output_path]
+        output_file_path = os.path.join(args.output_path, os.path.splitext(os.path.basename(args.input_file_path))[0] + "_{0:04d}".format(i) + input_format)
+
+        details.append([output_file_path, speech_start_time, speech_duration])
+        print("Using ffmpeg, writing segment from", speech_start_time, "seconds for", speech_duration, "seconds as", output_file_path)
+
+        # If video
+        if input_format == '.mp4':
+            command = ['ffmpeg', '-loglevel', 'warning', '-ss', speech_start_time, '-i', args.input_file_path, '-t', speech_duration, '-y',
+                       '-vcodec', 'libx264', '-preset', 'ultrafast', '-profile:v', 'main', '-acodec', 'aac', '-strict', '-2', output_file_path]
+
+        # Else if audio
+        else:
+            command = ['ffmpeg', '-loglevel', 'warning', '-ss', speech_start_time, '-i', args.input_file_path, '-t', speech_duration, '-y',
+                       '-acodec', 'copy', output_file_path]
+
+        # Write file
         subprocess.call(command)
+
         # print(' Writing %s' % (path,))
         # write_wave(path, segment, sample_rate)
-    # Writing "details" (video_file_output_path, speech_start_time, speech_duration) into csv/txt
+
+    # Writing "details" (output_file_path, speech_start_time, speech_duration) into csv/txt
+
     # # Write as csv
-    # with open(os.path.join(args.video_output_path, os.path.splitext(os.path.basename(args.video_file_path))[0]) + ".csv", "w") as f:
+    # with open(os.path.join(args.output_path, os.path.splitext(os.path.basename(args.input_file_path))[0]) + ".csv", "w") as f:
     #     writer = csv.writer(f)
     #     writer.writerows(details)
+
     # Write as txt
-    text_file_name = os.path.join(args.video_output_path, os.path.splitext(os.path.basename(args.video_file_path))[0]) + ".txt"
+    text_file_name = os.path.join(args.output_path, os.path.splitext(os.path.basename(args.input_file_path))[0]) + ".txt"
     print("Writing text file", text_file_name)
     with open(text_file_name, "w") as f:
         for row in details:
@@ -269,15 +276,15 @@ def main(args):
 
 
 def assert_args(args):
-    if args.video_output_path == 'same':
-        args.video_output_path = os.path.dirname(args.video_file_path)
+    if args.output_path == 'same':
+        args.output_path = os.path.dirname(args.input_file_path)
     try:
         # Assert video_file_path exists
-        assert os.path.exists(args.video_file_path), ("Input file does not exist! Got: " + args.video_file_path)
+        assert os.path.exists(args.input_file_path), ("Input file does not exist! Got: " + args.input_file_path)
         # Assert video_file_path is mp4
-        assert os.path.splitext(args.video_file_path)[-1] == '.mp4' or os.path.splitext(args.video_file_path)[-1] == '.MP4', ("Video file must be .mp4! Got: " + args.video_file_path)
+        # assert os.path.splitext(args.video_file_path)[-1] == '.mp4' or os.path.splitext(args.video_file_path)[-1] == '.MP4', ("Video file must be .mp4! Got: " + args.video_file_path)
         # Assert audio_file_path is wav
-        assert os.path.splitext(args.audio_file_path)[-1] == '.wav', ("audio_file_path must be a .wav file! Got: " + args.audio_file_path)
+        # assert os.path.splitext(args.audio_file_path)[-1] == '.wav', ("audio_file_path must be a .wav file! Got: " + args.audio_file_path)
     except AssertionError as error:
         print('\nERROR:\n', error, '\n')
         print("Exiting.\n")
@@ -293,3 +300,4 @@ if __name__ == '__main__':
     print(args)
     # Do your thang
     main(args)
+
