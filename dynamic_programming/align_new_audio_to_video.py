@@ -99,11 +99,16 @@ def dynamic_programming(source, target):
     return mapped_target_frames_of_source_frames_fixed, mapped_source_frames_of_target_frames_fixed
     
 
-def align_new_audio_to_video(source_video, target_dialogue, new_video_name, verbose=False):
+def align_new_audio_to_video(source_video, target_dialogue, new_video_name, verbose=False, profile_time=False):
     """Dynamic programming reference - "A Maximum Likelihood Stereo Algorithm"
     by Ingemar J. Cox, Sunita L. Hingorani, Satish B. Rao
     (https://pdfs.semanticscholar.org/b232/e3426e0014389ea05132ea8d08789dcc0566.pdf)
     """
+    
+    if profile_time:
+        import time
+        times = {}
+        start_time = time.time()
     
     # READ SOURCE VIDEO
     if verbose:
@@ -111,17 +116,31 @@ def align_new_audio_to_video(source_video, target_dialogue, new_video_name, verb
     video_reader = imageio.get_reader(source_video) 
     video_fps = video_reader.get_meta_data()['fps']
     
+    if profile_time:
+        source_video_dur = video_reader.get_meta_data()['duration']
+        video_read_time = time.time()
+        times['00_video_read'] = video_read_time - start_time
+    
     # READ SOURCE AUDIO
     # Convert video's audio into a .wav file
     if verbose:
         print("Writing source video's audio as /tmp/audio.wav")
     ret = subprocess.call(['ffmpeg', '-loglevel', 'error', '-i', source_video, '-y', '-codec:a', 'pcm_s16le', '-ac', '1', '/tmp/audio.wav'])
+    
+    if profile_time:
+        source_audio_write_time = time.time()
+        times['01_source_audio_write'] = source_audio_write_time - video_read_time
+    
     # Read the .wav file
     if verbose:
         print("Reading source video's audio - /tmp/audio.wav")
     source_audio_fs, source_audio = scipy.io.wavfile.read('/tmp/audio.wav')
     if len(source_audio.shape) > 1:
         source_audio = source_audio[:, 0]
+    
+    if profile_time:
+        source_audio_read_time = time.time()
+        times['02_source_audio_read'] = source_audio_read_time - source_audio_write_time    
     
     # READ TARGET AUDIO
     # Check file type
@@ -133,12 +152,18 @@ def align_new_audio_to_video(source_video, target_dialogue, new_video_name, verb
             print("Converting target dialogue file into .wav - /tmp/audio.wav")
         ret = subprocess.call(['ffmpeg', '-loglevel', 'error', '-i', target_dialogue, '-y', '-codec:a', 'pcm_s16le', '-ac', '1', '/tmp/audio.wav'])
         target_dialogue = '/tmp/audio.wav'
+    
     # Read the target .wav file
     if verbose:
         print("Reading target audio", target_dialogue)
     target_audio_fs, target_audio = scipy.io.wavfile.read(target_dialogue)
     if len(target_audio.shape) > 1:
         target_audio = target_audio[:, 0]
+    
+    if profile_time:
+        target_audio_dur = len(target_audio) / target_audio_fs
+        target_audio_read_time = time.time()
+        times['03_target_audio'] = target_audio_read_time - source_audio_read_time
     
     # EXTRACT MFCC FEATURES
     frame_length = 0.025
@@ -157,11 +182,19 @@ def align_new_audio_to_video(source_video, target_dialogue, new_video_name, verb
                                               frame_length=frame_length, frame_stride=frame_stride,
                                               num_cepstral=num_cepstral, num_filters=num_filters)
     
+    if profile_time:
+        mfcc_extract_time = time.time()
+        times['04_MFCC_extract'] = mfcc_extract_time - target_audio_read_time
+    
     # DO DYNAMIC PROGRAMMING BETWEEN THE SOURCE AND TARGET AUDIO MFCC FRAMES
     if verbose:
         print("Doing dynamic programming between source and target audio")
     mapped_target_audio_frames_of_source_audio_frames, \
         mapped_source_audio_frames_of_target_audio_frames = dynamic_programming(source_audio_mfcc, target_audio_mfcc)
+    
+    if profile_time:
+        dp_time = time.time()
+        times['05_dynamic_programming'] = dp_time - mfcc_extract_time
     
     # CONVERT AUDIO MAPPING TO VIDEO MAPPING, i.e. mapped_source_video_frames_of_target_video_frames
     if verbose:
@@ -177,17 +210,29 @@ def align_new_audio_to_video(source_video, target_dialogue, new_video_name, verb
     # Select the source video frames corresponding to each target video frame
     mapped_source_video_frames_of_target_video_frames = np.floor(mapped_source_video_frames_of_target_audio_frames[target_audio_frames_idx_of_target_video_frames]).astype(int)
     
+    if profile_time:
+        convert_audio_map_to_video_map_time = time.time()
+        times['06_audio_map_to_video_map'] = convert_audio_map_to_video_map_time - dp_time
+    
     # MAKE NEW VIDEO
+    
     if verbose:
         print("Making new video", new_video_name)
+    
     # Read video
     source_frames = []
     for frame in video_reader:
         source_frames.append(frame)
+    
+    if profile_time:
+        read_source_video_frames_time = time.time()
+        times['07_read_source_video_frames'] = read_source_video_frames_time - convert_audio_map_to_video_map_time
+    
     # Note new frames
     new_frames = []
     for source_frame_number in mapped_source_video_frames_of_target_video_frames:
         new_frames.append(source_frames[int(source_frame_number)])
+    
     # Save new video
     if os.path.splitext(new_video_name)[-1] != '.mp4':
         new_video_name += '.mp4'
@@ -197,6 +242,10 @@ def align_new_audio_to_video(source_video, target_dialogue, new_video_name, verb
     if verbose:
         print("Writing mp4 of new video frames /tmp/video.mp4")
     imageio.mimwrite('/tmp/video.mp4', new_frames, fps=video_fps)
+     
+    if profile_time:
+        save_new_frames_time = time.time()
+        times['08_save_new_frames'] = save_new_frames_time - read_source_video_frames_time
     
     if verbose:
         print("Writing new video with source_video frames and target dialogue", new_video_name)
@@ -209,6 +258,14 @@ def align_new_audio_to_video(source_video, target_dialogue, new_video_name, verb
     
     if verbose:
         print("Done!")
+    
+    if profile_time:
+        new_video_write_time = time.time()
+        times['09_new_video_write'] = new_video_write_time - save_new_frames_time
+        print("Source video duration:", source_video_dur, "seconds")
+        print("Target audio duration:", target_audio_dur, "seconds")
+        for key in sorted(times.keys()):
+            print("{0:30s}: {1:.02f} seconds".format(key, times[key]))
 
 
 if __name__ == '__main__':
@@ -218,9 +275,10 @@ if __name__ == '__main__':
     parser.add_argument('target_audio', type=str, help="name of target audio, a .wav or .mp3 file: eg. 'source_audio.mp3', or 'source_audio.wav'")
     parser.add_argument('new_video_name', type=str, help="name of new video, a .mp4 file: eg. 'new_video.mp4'")
     parser.add_argument('--verbose', '-v', action="store_true", help="verbose")
+    parser.add_argument('--profile_time', '-t', action="store_true", help="make time profile")
 
     args = parser.parse_args()
     print(args)
 
-    align_new_audio_to_video(args.source_video, args.target_audio, args.new_video_name, args.verbose)
+    align_new_audio_to_video(args.source_video, args.target_audio, args.new_video_name, args.verbose, args.profile_time)
 
