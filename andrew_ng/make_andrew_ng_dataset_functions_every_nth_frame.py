@@ -29,6 +29,7 @@ def extract_person_face_frames(video_file, out_dir, person_name,
                                overwrite_frames=False, overwrite_face_shapes=False,
                                save_faces=False,
                                save_faces_combined_with_blackened_mouths_and_lip_polygons=True,
+                               skip_frames=0,
                                verbose=False):
     """!@brief Reads frames, checks for person in every 10th frame; if person is present,
     processes all 10 frames for landmarks - detects faces in each frame, chooses the right
@@ -304,6 +305,9 @@ def extract_person_face_frames(video_file, out_dir, person_name,
 
         # For each frame
         for frame_number, frame in enumerate(tqdm(video_frames_reader)):
+
+            if frame_number < skip_frames:
+                continue
 
             # Read frame if not from video
             if not save_frames:
