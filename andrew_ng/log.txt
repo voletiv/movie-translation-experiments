@@ -1,0 +1,16 @@
+0
+20180414_015206_andrew_ng
+No data augmentation - very good results!
+
+1
+20180414_141411_andrew_ng
+With data augmentation - bad.
+Somehow stupid patchy errors in the generated images.
+Wish to change the weight between reconstruction loss and discriminator loss, and also put mouth-weighted reconstruction loss to the generator, rather than just MAE (currently this is done only when the DCGAN is compiled)
+Current weights of reconstruction loss and binary cross-entropy - [10, 1]
+
+2
+20180414_165545_andrew_ng
+Weights of reconstruction loss and binary cross-entropy - [1, 1] (previously [10, 1])
+
+
