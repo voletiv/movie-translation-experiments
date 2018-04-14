@@ -247,7 +247,7 @@ def main(args):
         details.append([output_file_path, speech_start_time, speech_duration])
         print("Using ffmpeg, writing segment from", speech_start_time, "seconds for", speech_duration, "seconds as", output_file_path)
 
-        if not dry_run:
+        if not args.dry_run:
             # If video
             if input_format == '.mp4':
                 command = ['ffmpeg', '-loglevel', 'warning', '-ss', speech_start_time, '-i', args.input_file_path, '-t', speech_duration, '-y',
