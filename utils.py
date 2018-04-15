@@ -1,7 +1,9 @@
 import cv2
+import imageio
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import subprocess
 
 from skimage.transform import resize
 
@@ -9,6 +11,16 @@ from config import *
 
 
 config = MovieTranslationConfig()
+
+
+def load_generator(model_path, verbose=False):
+    if not os.path.exists(model_path):
+        raise ValueError("[ERROR] model path does not exist! Given:", model_path)
+
+    from keras.models import load_model
+    if verbose:
+        print("Loading model", model_path, "...")
+    return load_model(model_path)
 
 
 def load_dlib_detector_and_predictor(verbose=False):
@@ -156,9 +168,10 @@ def get_square_expand_resize_face_and_modify_landmarks(frame, landmarks, resize_
     else:
         face_rect_square_expanded = [0, 0, frame.shape[1], frame.shape[0]]
     
-    # Resize frame[face_bounding_box] to 224x224
+    # Resize frame[face_bounding_box] to resize_to_shape
     face_square_expanded = frame[face_rect_square_expanded[1]:face_rect_square_expanded[3], face_rect_square_expanded[0]:face_rect_square_expanded[2]]
-    face_square_expanded_resized = np.round(resize(face_square_expanded, resize_to_shape, preserve_range=True)).astype('uint8')
+    face_original_size = face_square_expanded.shape[:2]
+    face_square_expanded_resized = np.round(resize(face_square_expanded, resize_to_shape, mode='reflect', preserve_range=True)).astype('uint8')
 
     # Note the landmarks in the expanded resized face
     # 2D landmarks
@@ -172,7 +185,7 @@ def get_square_expand_resize_face_and_modify_landmarks(frame, landmarks, resize_
                                                                z] for (x, y, z) in landmarks]).astype('int')
                                                                # z/(face_rect_square_expanded[3] - face_rect_square_expanded[1])*224] for (x, y, z) in landmarks])
 
-    return face_square_expanded_resized, landmarks_in_face_square_expanded_resized
+    return face_square_expanded_resized, landmarks_in_face_square_expanded_resized, face_rect_square_expanded, face_original_size
 
 
 def make_black_mouth_and_lips_polygons(frame, mouth_landmarks):
@@ -181,7 +194,7 @@ def make_black_mouth_and_lips_polygons(frame, mouth_landmarks):
         mouth_rect = [int(np.min(mouth_landmarks[:, 0])), int(np.min(mouth_landmarks[:, 1])), int(np.max(mouth_landmarks[:, 0])), int(np.max(mouth_landmarks[:, 1]))]
 
         # Expand mouth bounding box
-        mouth_rect_expanded = expand_rect(mouth_rect, scale_w=1.2, scale_h=1.8, frame_shape=(224, 224))
+        mouth_rect_expanded = expand_rect(mouth_rect, scale_w=1.2, scale_h=1.8, frame_shape=(frame.shape[0], frame.shape[1]))
 
         # Make new frame for blackened mouth and lip polygons
         frame_with_blackened_mouth_and_lip_polygons = np.array(frame)
@@ -225,6 +238,57 @@ def expand_rect(rect, scale=None, scale_w=1.5, scale_h=1.5, frame_shape=(256, 25
         new_h = (frame_shape[0] - 1) - new_y
     # Return
     return [new_x, new_y, new_x + new_w, new_y + new_h]
+
+
+def normalize_input_to_generator(list_of_frames):
+    return np.array(list_of_frames)/127. - 1.
+
+
+def unnormalize_output_from_generator(np_array_output_of_generator):
+    return np.round((np_array_output_of_generator + 1)/2.*255.).astype('uint8')
+
+
+def save_new_video_frames_with_target_audio_as_mp4(frames, video_fps, target_audio_file, output_file_name='new_video.mp4', verbose=False):
+
+    # Save mp4 of frames
+    if target_audio_file is not None:
+        if verbose:
+            print("Writing frames as mp4")
+        imageio.mimwrite('/tmp/video.mp4', frames, fps=video_fps)
+    
+        # Convert audio into aac (to integrate into video)
+        command = ['ffmpeg', '-loglevel', 'error', '-i', target_audio_file, '-y', '-vn', '-acodec', 'aac', '-strict', '-2', '/tmp/video_audio.aac']
+        command_return = subprocess.call(command)
+    
+        # Combine frames with audio
+        output_dir = os.path.dirname(output_file_name)
+        if not os.path.exists(output_dir):
+            print("Making", output_dir)
+            os.makedirs(output_dir)
+    
+        if target_audio_file is not None:
+            command = ['ffmpeg', '-loglevel', 'error',
+                       '-i', '/tmp/video.mp4', '-i', '/tmp/video_audio.aac',
+                       '-vcodec', 'libx264', '-preset', 'ultrafast', '-profile:v', 'main', '-acodec', 'aac', '-strict', '-2',
+                       output_file_name]
+    
+            if verbose:
+                print("Combining new frames with target audio:", command)
+            command_return = subprocess.call(command)    # subprocess.call returns 0 on successful run
+
+    else:
+        imageio.mimwrite(output_file_name, frames, fps=video_fps)
+
+    # # Save npz
+    # if verbose:
+    #     print("Saving npz")
+    # np.savez("exchanged_dialogues", new_video1=new_video1_frames_generated, new_video2=new_video2_frames_generated)
+
+    # # Save GIF
+    # if verbose:
+    #     print("Saving gifs")
+    # imageio.mimsave(os.path.join("video1.gif"), new_video1_frames_generated)
+    # imageio.mimsave(os.path.join("video2.gif"), new_video2_frames_generated)
 
 
 def read_landmarks(language, actor, number, read_2D_dlib_or_3D=''):
