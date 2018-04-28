@@ -279,23 +279,33 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
         # Predict new faces using generator
         if verbose:
             print("Generating new faces using faces_with_bmp...")
-    
-        new_faces = utils.unnormalize_output_from_generator(generator_model.predict(utils.normalize_input_to_generator(faces_with_black_mouth_polygons)))
-    
+
+        # Predict in batches
+        new_faces = []
+        batch_size = 8
+        num_of_batches = int(np.ceil(len(faces_with_black_mouth_polygons)/batch_size))
+        for batch in range(num_of_batches):
+            faces_with_bmp_batch = faces_with_black_mouth_polygons[batch*batch_size:(batch+1)*batch_size]
+            new_faces_batch = utils.unnormalize_output_from_generator(generator_model.predict(utils.normalize_input_to_generator(faces_with_bmp_batch)))
+            for new_face in new_faces_batch:
+                new_faces.append(new_face)
+
+        # new_faces = utils.unnormalize_output_from_generator(generator_model.predict(utils.normalize_input_to_generator(faces_with_black_mouth_polygons)))
+
         if save_generated_faces:
             faces_output_video_name = os.path.splitext(output_video_name)[0] + '_faces.mp4'
             print("Saving new faces as", faces_output_video_name)
             utils.save_new_video_frames_with_target_audio_as_mp4(new_faces, target_video_fps, target_audio_file, output_file_name=faces_output_video_name, verbose=verbose)
-    
+   
         # Reintegrate generated faces into frames
         if verbose:
             print("Reintegrating generated faces into frames...")
-    
+
         new_frames = list(target_video_frames)
         for (new_frame, new_face, face_original_size, face_rect_in_frame) in tqdm.tqdm(zip(new_frames, new_faces, face_original_sizes, face_rect_in_frames), total=num_of_frames):
             new_face_resized = np.round(resize(new_face, face_original_size, mode='reflect', preserve_range=True)).astype('uint8')
             new_frame[face_rect_in_frame[1]:face_rect_in_frame[3], face_rect_in_frame[0]:face_rect_in_frame[2]] = new_face_resized
-    
+
         # Write new video
         print("Saving new frames as", output_video_name)
         utils.save_new_video_frames_with_target_audio_as_mp4(new_frames, target_video_fps, target_audio_file, output_file_name=output_video_name, verbose=verbose)
