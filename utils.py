@@ -99,7 +99,7 @@ def get_landmarks_using_dlib_detector_and_predictor(frame, detector, predictor):
     #                (rows)
     faces = detector(frame, 1)
     if len(faces) > 0:
-        # TODO: Use VGG-Face to verify face
+        # TODO: Use dlib recognition model to verify face
         # Choose first face
         face = faces[0]
         # Detect landmarks
