@@ -4,13 +4,29 @@ No data augmentation - very good results!
 
 1
 20180414_141411_andrew_ng
-With data augmentation - bad.
+With data augmentation, [10, 1], gen loss is mae - bad.
 Somehow stupid patchy errors in the generated images.
 Wish to change the weight between reconstruction loss and discriminator loss, and also put mouth-weighted reconstruction loss to the generator, rather than just MAE (currently this is done only when the DCGAN is compiled)
 Current weights of reconstruction loss and binary cross-entropy - [10, 1]
 
 2
 20180414_165545_andrew_ng
+With data augmentation, [1, 1], gen loss is mae
 Weights of reconstruction loss and binary cross-entropy - [1, 1] (previously [10, 1])
+Didn't work at all.. Became blurry also!
+Changed back to [10, 1]
+Changed gen compilation loss to mouth-weighted l1 instead of mae
+
+3
+20180415_011916_andrew_ng
+With data augmentation, [10, 1], gen loss is l1-weighted
+Trying with l1_weighted_loss around the mouth, with data augmentation..
+Patchy errors but better than 1..
+
+4
+20180416_180214_andrew_ng_small
+Tried on small dataset with l1_weighted_loss around the mouth for gen - patchy errors!
+
+5
 
 
