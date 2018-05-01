@@ -4,6 +4,7 @@ import glob
 import imageio
 import numpy as np
 import os
+import re
 import sys
 import time
 import tqdm
@@ -18,19 +19,21 @@ sys.path.append(ROOT_DIR)
 import utils
 
 
-def read_video_landmarks(video_file_name=None, video_frames=None,
-                         read_from_landmarks_file=True, landmarks_type='frames',
+def read_video_landmarks(video_frames=None, # Either read landmarks for each frame
+                         video_file_name=None, read_from_landmarks_file=True, landmarks_type='frames', video_fps=24, # Or, read from video landmarks_file
                          dataset_dir=morph_video_config.dataset_dir, person=morph_video_config.person,
                          required_number=None, verbose=False):
     """
     Read landmarks
-    1) from files with landmarks in full frames like /shared/fusor/home/voleti.vikram/ANDREW_NG/landmarks_in_frames_person/CV_01.C4W1L01_Computer_Vision_in_frames_andrew_ng.txt,
+    1) from files with landmarks in full frames like /shared/fusor/home/voleti.vikram/ANDREW_NG/landmarks_in_frames_person/CV_01.C4W1L01_Computer_Vision_in_landmarks_frames_andrew_ng.txt,
     => read_from_landmarks_file=True, landmarks_type='frames', video_file_name is REQUIRED
-    2) from files with landmarks in face images, like shared/fusor/home/voleti.vikram/ANDREW_NG/landmarks_in_faces_person/CV_01.C4W1L01_Computer_Vision_in_faces_andrew_ng.txt
+    2) from files with landmarks in face images, like /shared/fusor/home/voleti.vikram/ANDREW_NG/landmarks_in_faces_person/CV_01.C4W1L01_Computer_Vision_in_landmarks_faces_andrew_ng.txt
     => read_from_landmarks_file=True, landmarks_type='faces', video_file_name is REQUIRED
     3) from the frames themselves (detect faces and predict landmarks using dlib)
     => read_from_landmarks_file=False, video_frames is REQUIRED
     """
+
+    frames_with_no_landmarks = []
 
     if read_from_landmarks_file:
 
@@ -74,17 +77,64 @@ def read_video_landmarks(video_file_name=None, video_frames=None,
         if verbose:
             print("read_video_landmarks: Found landmarks file", landmarks_file)
 
-        # Read all landmarks of all frames of video_file_name
+        # Read all landmarks of all frames with person in video_file_name
         landmarks_full = utils.read_landmarks_list_from_txt(landmarks_file)
 
-        # Note only those landmarks of the required number of frames
-        if required_number is not None:
-            landmarks_full = landmarks_full[:required_number]
+        # FROM frame
+        try:
+            # Find time start frame number from video_file_name, if it exists
+            time_start_index = re.search(r"[0-9][0-9][0-9][0-9][0-9][0-9]_to_[0-9][0-9][0-9][0-9][0-9][0-9]", video_file_name).start()
+            time_start_hr = int(video_file_name[time_start_index:time_start_index+2])
+            time_start_min = int(video_file_name[time_start_index+2:time_start_index+4])
+            time_start_sec = int(video_file_name[time_start_index+4:time_start_index+6])
+            time_start_frame = int(video_fps * (time_start_hr*3600 + time_start_min*60 + time_start_sec))
+        except:
+            # Else, start from first frame
+            time_start_frame = 0
 
-        # Save only mouth landmarks
-        landmarks = np.array([lms[1:] for lms in landmarks_full]).astype('float')
+        if verbose:
+            print("start_frame_number", time_start_frame)
 
-        return landmarks
+        # If required number is not given, make it total length of video
+        if required_number is None:
+            try:
+                # Find time end frame number from video_file_name, if it exists
+                time_end_index = time_start_index + 10
+                time_end_hr = int(video_file_name[time_end_index:time_end_index+2])
+                time_end_min = int(video_file_name[time_end_index+2:time_end_index+4])
+                time_end_sec = int(video_file_name[time_end_index+4:time_end_index+6])
+                time_end_frame = int(video_fps * (time_end_hr*3600 + time_end_min*60 + time_end_sec))
+            except:
+                # Else, end at last landmark frame
+                time_end_frame = int(os.path.splitext(landmarks_full[-1][0])[0].split("_")[-1])
+            required_number = time_end_frame - time_start_frame + 1 
+
+        if verbose:
+            print("required_number", required_number)
+
+        # EXTRACT LANDMARKS
+        landmarks = []
+
+        # Find landmarks_full_index of start frame
+        landmarks_full_index = 0
+        while int(os.path.splitext(landmarks_full[landmarks_full_index][0])[0].split("_")[-1]) < time_start_frame:
+            landmarks_full_index += 1
+
+        for frame_number in range(time_start_frame, time_start_frame+required_number):
+            landmarks_frame_number = int(os.path.splitext(landmarks_full[landmarks_full_index][0])[0].split("_")[-1])
+            if verbose:
+                print("frame_number", frame_number, "; landmarks_frame_number", landmarks_frame_number)
+            if landmarks_frame_number == frame_number:
+                frames_with_no_landmarks.append(0)
+                landmarks.append(landmarks_full[landmarks_full_index])
+                landmarks_full_index += 1
+            else:
+                # If landmarks_frame_number > frame_number, no landmarks were detected for current frame_number
+                frames_with_no_landmarks.append(1)
+                landmarks.append(landmarks_full[landmarks_full_index])
+
+        # Save only landmarks (without frame number)
+        landmarks = [lms[1:] for lms in landmarks]
 
     else:
 
@@ -93,14 +143,22 @@ def read_video_landmarks(video_file_name=None, video_frames=None,
 
         print("read_video_frame_landmarks: detecting faces and predicting landmarks in every frame...")
 
-        dlib_face_detector, dlib_shape_predictor = load_dlib_detector_and_predictor(verbose=verbose)
+        dlib_face_detector, dlib_shape_predictor = utils.load_dlib_detector_and_predictor(verbose=verbose)
 
         landmarks = []
-        for frame in tqdm.tqdm(video_frames):
-            landmarks_in_frame = get_landmarks_using_dlib_detector_and_predictor(frame, dlib_face_detector, dlib_shape_predictor)
-            landmarks.append(landmarks_in_frame[1:])
+        for f, frame in tqdm.tqdm(video_frames):
+            landmarks_in_frame = utils.get_landmarks_using_dlib_detector_and_predictor(frame, dlib_face_detector, dlib_shape_predictor)
+            if landmarks_in_frame is not None:
+                landmarks.append(landmarks_in_frame[1:])
+                frames_with_no_landmarks.append(0)
+            else:
+                frames_with_no_landmarks.append(1)
+                if f > 0:
+                    landmarks.append(landmarks[-1])
+                else:
+                    landmarks.append(np.zeros((68, 2)))
 
-        return np.array(landmarks)
+    return np.array(landmarks).astype('float'), frames_with_no_landmarks
 
 
 def getOriginalKeypoints(kp_features_mouth, N, tilt, mean):
@@ -133,26 +191,61 @@ def affine_transform_landmarks(source_landmarks, target_landmarks, fullAffine=Tr
     return target_landmarks_tx_from_source, M
 
 
-def simple_transform_landmarks(source_landmarks, target_landmarks):
+def transform_landmarks_by_upper_lips(source_lip_landmarks, target_lip_landmarks):
 
-    source_landmarks = source_landmarks.astype('float')
-    target_landmarks = target_landmarks.astype('float')
+    source_lip_landmarks = source_lip_landmarks.astype('float')
+    target_lip_landmarks = target_lip_landmarks.astype('float')
+
+    # Centroid
+    source_lips_centroid = np.mean(source_lip_landmarks, axis=0)
+    target_lips_centroid = np.mean(target_lip_landmarks, axis=0)
+
+    # Upper lips
+    source_upper_lips = source_lip_landmarks[:7]
+    target_upper_lips = target_lip_landmarks[:7]
+
+    # Upper lips centroid
+    source_upper_lips_centroid = np.mean(source_upper_lips, axis=0)
+    target_upper_lips_centroid = np.mean(target_upper_lips, axis=0)
+
+    # Centre both mouths
+    source_mouth_centred = source_lip_landmarks - source_lips_centroid
+    target_mouth_centred = target_lip_landmarks - target_lips_centroid
+
+    # Scale
+    scale_x = (np.max(target_mouth_centred[:, 0]) - np.min(target_mouth_centred[:, 0]))/(np.max(source_mouth_centred[:, 0]) - np.min(source_mouth_centred[:, 0]))
+    scale_y = (np.max(target_mouth_centred[:, 1]) - np.min(target_mouth_centred[:, 1]))/(np.max(source_mouth_centred[:, 1]) - np.min(source_mouth_centred[:, 1]))
+    source_mouth_centred_scaled = source_mouth_centred
+    source_mouth_centred_scaled[:, 0] *= scale_x
+    source_mouth_centred_scaled[:, 1] *= scale_y
+
+    # Move upper lip centroid
+    translation = target_upper_lips_centroid - source_upper_lips_centroid
+    new_mouth_landmarks = source_mouth_centred_scaled + source_lips_centroid - source_upper_lips_centroid + translation
+
+    return np.round(new_mouth_landmarks).astype('int')
+
+
+def transform_landmarks_by_mouth_centroid_and_scales(source_lip_landmarks, target_lip_landmarks):
+
+    source_lip_landmarks = source_lip_landmarks.astype('float')
+    target_lip_landmarks = target_lip_landmarks.astype('float')
     
     # Mouth left corner
-    ml_source = source_landmarks[0]
-    ml_target = target_landmarks[0]
+    ml_source = source_lip_landmarks[0]
+    ml_target = target_lip_landmarks[0]
 
     # Mouth right corner
-    mr_source = source_landmarks[6]
-    mr_target = target_landmarks[6]
+    mr_source = source_lip_landmarks[6]
+    mr_target = target_lip_landmarks[6]
 
     # Mouth top
-    mt_source = source_landmarks[3]
-    mt_target = target_landmarks[3]
+    mt_source = source_lip_landmarks[3]
+    mt_target = target_lip_landmarks[3]
 
     # Mouth bottom
-    mb_source = source_landmarks[9]
-    mb_target = target_landmarks[9]
+    mb_source = source_lip_landmarks[9]
+    mb_target = target_lip_landmarks[9]
 
     # Centroid
     mouth_centroid_source = (ml_source + mr_source + mt_source + mb_source)/4
@@ -225,7 +318,8 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
             break
 
     # Read target_video_file's frame landmarks
-    target_all_landmarks_in_frames = read_video_landmarks(video_file_name=target_video_file, read_from_landmarks_file=True, landmarks_type='frames', required_number=num_of_frames, verbose=verbose)
+    target_all_landmarks_in_frames, frames_with_no_landmarks = read_video_landmarks(video_file_name=target_video_file, read_from_landmarks_file=True, landmarks_type='frames',
+                                                                                    required_number=num_of_frames, video_fps=target_video_fps, verbose=verbose)
 
     # Make new images of faces with black mouth polygons
     face_rect_in_frames = []
@@ -237,7 +331,11 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
     if verbose:
         print("Making new images of faces with black mouth polygons...")
 
-    for f, (target_frame, target_all_landmarks_in_frame, source_lip_landmarks_in_frame) in enumerate(tqdm.tqdm(zip(target_video_frames, target_all_landmarks_in_frames, source_lip_landmarks), total=num_of_frames)):
+    for (target_frame, target_all_landmarks_in_frame, source_lip_landmarks_in_frame, use_original_frame) in tqdm.tqdm(zip(target_video_frames,
+                                                                                                                          target_all_landmarks_in_frames,
+                                                                                                                          source_lip_landmarks,
+                                                                                                                          frames_with_no_landmarks),
+                                                                                                                      total=num_of_frames):
 
         # Get the face - squared, expanded, resized
         face_square_expanded_resized, \
@@ -253,15 +351,19 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
 
         # Tx source lip landmarks to good target video position, etc.
         target_lip_landmarks_in_frame = np.array(landmarks_in_face_square_expanded_resized[48:68])
-        # target_lip_landmarks_tx_from_source, M = affine_transform_landmarks(source_lip_landmarks_in_frame, target_lip_landmarks_in_frame, fullAffine=True, prev_M=M)
-        target_lip_landmarks_tx_from_source = simple_transform_landmarks(source_lip_landmarks_in_frame, target_lip_landmarks_in_frame)
+        target_lip_landmarks_tx_from_source, M = affine_transform_landmarks(source_lip_landmarks_in_frame, target_lip_landmarks_in_frame, fullAffine=True, prev_M=M)
+        # target_lip_landmarks_tx_from_source = transform_landmarks_by_mouth_centroid_and_scales(source_lip_landmarks_in_frame, target_lip_landmarks_in_frame)
+        # target_lip_landmarks_tx_from_source = transform_landmarks_by_upper_lips(source_lip_landmarks_in_frame, target_lip_landmarks_in_frame)
 
         # Make face with black mouth polygon
-        face_with_bmp = utils.make_black_mouth_and_lips_polygons(face_square_expanded_resized, target_lip_landmarks_tx_from_source)
+        if use_original_frame:
+            face_with_bmp = face_square_expanded_resized
+        else:
+            face_with_bmp = utils.make_black_mouth_and_lips_polygons(face_square_expanded_resized, target_lip_landmarks_tx_from_source)
         faces_with_black_mouth_polygons.append(face_with_bmp)
         if save_both_faces_with_bmp:
             face_with_original_bmp = utils.make_black_mouth_and_lips_polygons(face_square_expanded_resized, landmarks_in_face_square_expanded_resized[48:68])
-            both_face_with_bmp = np.hstack((face_with_original_bmp, face_with_bmp))
+            both_face_with_bmp = np.hstack((face_square_expanded_resized, face_with_original_bmp, face_with_bmp))
             both_faces_with_bmp.append(both_face_with_bmp)
 
     if save_faces_with_black_mouth_polygons:
@@ -290,11 +392,12 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
             for new_face in new_faces_batch:
                 new_faces.append(new_face)
 
-        # new_faces = utils.unnormalize_output_from_generator(generator_model.predict(utils.normalize_input_to_generator(faces_with_black_mouth_polygons)))
-
         if save_generated_faces:
             faces_output_video_name = os.path.splitext(output_video_name)[0] + '_faces.mp4'
             print("Saving new faces as", faces_output_video_name)
+            for i in range(len(new_faces)):
+                if frames_with_no_landmarks[i]:
+                    new_faces[i] = both_faces_with_bmp[i][:, :generator_model_input_cols]
             utils.save_new_video_frames_with_target_audio_as_mp4(new_faces, target_video_fps, target_audio_file, output_file_name=faces_output_video_name, verbose=verbose)
    
         # Reintegrate generated faces into frames
@@ -302,9 +405,11 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
             print("Reintegrating generated faces into frames...")
 
         new_frames = list(target_video_frames)
-        for (new_frame, new_face, face_original_size, face_rect_in_frame) in tqdm.tqdm(zip(new_frames, new_faces, face_original_sizes, face_rect_in_frames), total=num_of_frames):
-            new_face_resized = np.round(resize(new_face, face_original_size, mode='reflect', preserve_range=True)).astype('uint8')
-            new_frame[face_rect_in_frame[1]:face_rect_in_frame[3], face_rect_in_frame[0]:face_rect_in_frame[2]] = new_face_resized
+        for (new_frame, new_face, face_original_size, face_rect_in_frame, use_original_frame) in tqdm.tqdm(zip(new_frames, new_faces, face_original_sizes, face_rect_in_frames, frames_with_no_landmarks),
+                                                                                                           total=num_of_frames):
+            if not use_original_frame:
+                new_face_resized = np.round(resize(new_face, face_original_size, mode='reflect', preserve_range=True)).astype('uint8')
+                new_frame[face_rect_in_frame[1]:face_rect_in_frame[3], face_rect_in_frame[0]:face_rect_in_frame[2]] = new_face_resized
 
         # Write new video
         print("Saving new frames as", output_video_name)
@@ -352,6 +457,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # EXAMPLE: python morph_video_with_new_lip_landmarks.py /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/CV_01_C4W1L01_000003_to_000045/CV_01_C4W1L01_000003_to_000045.mp4 -a /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/Obama/ouput_new5.aac -l /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/generated_hindi_landmarks/output5/generated_lip_landmarks.mat -b -f -c -v
+
+    # EXAMPLE: python /shared/fusor/home/voleti.vikram/movie-translation-experiments/andrew_ng/morph_video_with_new_lip_landmarks.py /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/CV_01_C4W1L01_000003_to_000045/CV_01_C4W1L01_000003_to_000045.mp4 -a /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/genhindi_erated_landmarks/test_wav/CV_05_C4W1L05_000001_to_000011.wav -l /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/genhindi_erated_landmarks/CV_05_C4W1L05_000001_to_000011_generated_lip_landmarks.mat -o /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/visdub_hindi/CV_05_C4W1L05_000001_to_000011_with_generated_lip_landmarks_upper_lip.mp4 -v
 
     # Assert args
     assert_args(args)
