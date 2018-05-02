@@ -248,7 +248,7 @@ def unnormalize_output_from_generator(np_array_output_of_generator):
     return np.round((np_array_output_of_generator + 1)/2.*255.).astype('uint8')
 
 
-def save_new_video_frames_with_target_audio_as_mp4(frames, video_fps, target_audio_file, output_file_name='new_video.mp4', verbose=False):
+def save_new_video_frames_with_target_audio_as_mp4(frames, video_fps, target_audio_file, output_file_name='new_video.mp4', frame_shape=None, verbose=False):
 
     # Save mp4 of frames
     if target_audio_file is not None:
@@ -265,16 +265,19 @@ def save_new_video_frames_with_target_audio_as_mp4(frames, video_fps, target_aud
         if not os.path.exists(output_dir):
             print("Making", output_dir)
             os.makedirs(output_dir)
-    
-        if target_audio_file is not None:
-            command = ['ffmpeg', '-loglevel', 'error',
-                       '-i', '/tmp/video.mp4', '-i', '/tmp/video_audio.aac',
-                       '-vcodec', 'libx264', '-preset', 'ultrafast', '-profile:v', 'main', '-acodec', 'aac', '-strict', '-2',
-                       output_file_name]
-    
-            if verbose:
-                print("Combining new frames with target audio:", command)
-            command_return = subprocess.call(command)    # subprocess.call returns 0 on successful run
+
+        command = ['ffmpeg', '-loglevel', 'error',
+                   '-i', '/tmp/video.mp4', '-i', '/tmp/video_audio.aac']
+
+        if frame_shape is not None:
+            command += ['-s', str(frame_shape[0])+'x'+str(frame_shape[1])]
+
+        command += ['-vcodec', 'libx264', '-preset', 'ultrafast', '-profile:v', 'main', '-acodec', 'aac', '-strict', '-2',
+                    output_file_name]
+
+        if verbose:
+            print("Combining new frames with target audio:", command)
+        command_return = subprocess.call(command)    # subprocess.call returns 0 on successful run
 
     else:
         imageio.mimwrite(output_file_name, frames, fps=video_fps)
