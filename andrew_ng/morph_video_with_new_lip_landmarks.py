@@ -38,7 +38,7 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
     if read_from_landmarks_file:
 
         if verbose:
-            print("read_video_landmarks: read_from_landmarks_file")
+            print("read_video_landmarks: read_from_landmarks_file for", video_file_name)
 
         if video_file_name == None:
             raise ValueError("ERROR: read_video_frame_landmarks: video_file_name needs to be given, since read_from_landmarks_file=True!")
@@ -88,6 +88,8 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
             time_start_min = int(video_file_name[time_start_index+2:time_start_index+4])
             time_start_sec = int(video_file_name[time_start_index+4:time_start_index+6])
             time_start_frame = int(video_fps * (time_start_hr*3600 + time_start_min*60 + time_start_sec))
+            if verbose:
+                print(video_file_name[time_start_index:time_start_index+15], time_start_hr, time_start_min, time_start_sec, time_start_frame)
         except:
             # Else, start from first frame
             time_start_frame = 0
