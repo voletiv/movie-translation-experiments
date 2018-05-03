@@ -8,7 +8,6 @@ Tentative pipeline:
 
 
 # dataset_creation, exchange_dialogues
-# ------------------------------------
 
 Stuff related specifically to the MOVIE_TRANSLATION database. See README inside these directories for more info.
 
@@ -37,12 +36,10 @@ The installation instructions for this for Ubuntu are (according to the [face_al
     - python3 setup.py install
 
 # face_recognition
-# ----------------
 
 Experiments with face recogntion - use dlib's face recognition model to make face embedding and compare distances for different faces.
 
 # dynamic_programming
-# -------------------
 
 Given a source_video and a target_audio, make a new video with its audio as target_audio, and the frames warped from source_video such that they match target_audio's timing. The mapping of audio and frames is done via dynamic programming.
 
@@ -59,7 +56,6 @@ Given a source_video and a target_audio, make a new video with its audio as targ
 _Dynamic programming reference_ - "A Maximum Likelihood Stereo Algorithm" - Ingemar J. Cox, Sunita L. Hingorani, Satish B. Rao [pdf](https://pdfs.semanticscholar.org/b232/e3426e0014389ea05132ea8d08789dcc0566.pdf)
 
 # andrew_ng
-# ---------
 
 Experiments with Andrew Ng videos - making dataset by checking his face every 10th frame, extracting landmarks, etc.
 
