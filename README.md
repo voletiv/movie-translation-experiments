@@ -44,9 +44,19 @@ Experiments with face recogntion - use dlib's face recognition model to make fac
 # dynamic_programming
 # -------------------
 
-Given a source_video and a target_audio, make a new video with its audio as target_audio, and the frames warped from source_video such that they match target_audio's timing. The mapping of audio and frames is done via dynamic programming, referenced here:
+Given a source_video and a target_audio, make a new video with its audio as target_audio, and the frames warped from source_video such that they match target_audio's timing. The mapping of audio and frames is done via dynamic programming.
 
-- Dynamic programming reference - "A Maximum Likelihood Stereo Algorithm" - Ingemar J. Cox, Sunita L. Hingorani, Satish B. Rao [pdf](https://pdfs.semanticscholar.org/b232/e3426e0014389ea05132ea8d08789dcc0566.pdf)
+- Extract part of Andrew Ng's tutorial video using ffmpeg, and save in appropriate file
+
+```ffmpeg -ss 00:09:22 -i ../CV/04.C4W1L04\ Padding.mp4 -t 00:00:27 -vcodec libx264 -preset ultrafast -profile:v main -acodec aac -strict -2 CV_04_C4W1L04_000922_to_000949.mp4```
+
+- Record the same dialogues by someone else - CV_04_C4W1L04_000922_to_000949_ma.mp3
+
+- Use dynamic programming to change video timing to match audio
+
+```python movie-translation-experiments/dynamic_programming/align_new_audio_to_video.py CV_04_C4W1L04_000922_to_000949.mp4 CV_04_C4W1L04_000922_to_000949_ma.mp3 CV_04_C4W1L04_000922_to_000949_ma.mp4```
+
+_Dynamic programming reference_ - "A Maximum Likelihood Stereo Algorithm" - Ingemar J. Cox, Sunita L. Hingorani, Satish B. Rao [pdf](https://pdfs.semanticscholar.org/b232/e3426e0014389ea05132ea8d08789dcc0566.pdf)
 
 # andrew_ng
 # ---------
