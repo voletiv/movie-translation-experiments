@@ -123,17 +123,19 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
             landmarks_full_index += 1
 
         for frame_number in range(time_start_frame, time_start_frame+required_number):
-            landmarks_frame_number = int(os.path.splitext(landmarks_full[landmarks_full_index][0])[0].split("_")[-1])
+            if landmarks_full_index < len(landmarks_full):
+                landmarks_frame_number = int(os.path.splitext(landmarks_full[landmarks_full_index][0])[0].split("_")[-1])
+                landmarks_of_lm_frame_number = landmarks_full[landmarks_full_index]
             if verbose:
                 print("frame_number", frame_number, "; landmarks_frame_number", landmarks_frame_number)
             if landmarks_frame_number == frame_number:
                 frames_with_no_landmarks.append(0)
-                landmarks.append(landmarks_full[landmarks_full_index])
+                landmarks.append(landmarks_of_lm_frame_number)
                 landmarks_full_index += 1
             else:
                 # If landmarks_frame_number > frame_number, no landmarks were detected for current frame_number
                 frames_with_no_landmarks.append(1)
-                landmarks.append(landmarks_full[landmarks_full_index])
+                landmarks.append(landmarks_of_lm_frame_number)
 
         # Save only landmarks (without frame number)
         landmarks = [lms[1:] for lms in landmarks]
