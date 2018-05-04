@@ -261,7 +261,7 @@ def save_new_video_frames_with_target_audio_as_mp4(frames, video_fps, target_aud
         command_return = subprocess.call(command)
     
         # Combine frames with audio
-        output_dir = os.path.dirname(output_file_name)
+        output_dir = os.path.dirname(os.path.realpath(output_file_name))
         if not os.path.exists(output_dir):
             print("Making", output_dir)
             os.makedirs(output_dir)
