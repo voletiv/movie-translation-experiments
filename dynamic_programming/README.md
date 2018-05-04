@@ -47,5 +47,8 @@ Example:
 
 To overlay audio over video (naive dubbing):
 
+```ffmpeg -i <input_video> -i <input_audio> -c:v copy -c:a aac -strict experimental -map 0:v:0 -map 1:a:0 <output_video>```
+
+Example:
 ```ffmpeg -i /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/CV_02_C4W1L02_000006_to_000013/CV_02_C4W1L02_000006_to_000013.mp4 -i CV_02_C4W1L02_000006_to_000013_pauline_english.m4a -c:v copy -c:a aac -strict experimental -map 0:v:0 -map 1:a:0 /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/CV_02_C4W1L02_000006_to_000013/CV_02_C4W1L02_000006_to_000013_pauline_english_dub.mp4```
 
