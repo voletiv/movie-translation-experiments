@@ -2,12 +2,13 @@ import argparse
 import imageio
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 import tqdm
 
 from scipy.io import loadmat
 
 import sys
-sys.path.append('../')
+sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), '../')))
 import utils
 
 
@@ -25,20 +26,22 @@ def make_video_of_lip_landmarks(lip_landmarks_mat_file, video_fps=25, audio_file
     lip_landmarks_in_frames = extract_lip_landmarks_from_mat(lip_landmarks_mat_file)
 
     # Calculate xlim and ylim
-    xlim = (np.min(lip_landmarks_in_frames[:, :, 0]), np.max(lip_landmarks_in_frames[:, :, 0]))
-    ylim = (np.min(lip_landmarks_in_frames[:, :, 1]), np.max(lip_landmarks_in_frames[:, :, 1]))
+    xlim = (np.min(lip_landmarks_in_frames[:, :, 0]) - 0.01, np.max(lip_landmarks_in_frames[:, :, 0]) + 0.01)
+    ylim = (np.min(lip_landmarks_in_frames[:, :, 1]) - 0.01, np.max(lip_landmarks_in_frames[:, :, 1]) + 0.01)
     if verbose:
         print("xlim", xlim, "; ylim", ylim)
 
     frames = []
 
+    tmp_image_name = '/tmp/frame_%s.png' % os.path.basename(lip_landmarks_mat_file)[:-4]
+
     for lip_landmarks_in_frame in tqdm.tqdm(lip_landmarks_in_frames):
-        plt.scatter(lip_landmarks_in_frame[:, 0], lip_landmarks_in_frame[:, 1])
+        plt.scatter(lip_landmarks_in_frame[:, 0], -lip_landmarks_in_frame[:, 1])
         plt.xlim(xlim)
         plt.ylim(ylim)
-        plt.savefig('/tmp/frame.png', bbox_inches='tight')
+        plt.savefig(tmp_image_name, bbox_inches='tight')
         plt.close()
-        frames.append(imageio.imread('/tmp/frame.png'))
+        frames.append(imageio.imread(tmp_image_name))
 
     if verbose:
         print("frames", len(frames), frames[0].shape)
