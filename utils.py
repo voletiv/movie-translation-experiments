@@ -248,7 +248,7 @@ def unnormalize_output_from_generator(np_array_output_of_generator):
     return np.round((np_array_output_of_generator + 1)/2.*255.).astype('uint8')
 
 
-def save_new_video_frames_with_target_audio_as_mp4(frames, video_fps, target_audio_file, output_file_name='new_video.mp4', frame_shape=None, verbose=False):
+def save_new_video_frames_with_target_audio_as_mp4(frames, video_fps, target_audio_file, output_file_name='new_video.mp4', overwrite=False, frame_shape=None, verbose=False):
 
     # Save mp4 of frames
     if target_audio_file is not None:
@@ -266,8 +266,12 @@ def save_new_video_frames_with_target_audio_as_mp4(frames, video_fps, target_aud
             print("Making", output_dir)
             os.makedirs(output_dir)
 
-        command = ['ffmpeg', '-loglevel', 'error',
-                   '-i', '/tmp/video.mp4', '-i', '/tmp/video_audio.aac']
+        command = ['ffmpeg', '-loglevel', 'error']
+
+        if overwrite:
+            command += ['-y']
+
+        command += ['-i', '/tmp/video.mp4', '-i', '/tmp/video_audio.aac']
 
         if frame_shape is not None:
             command += ['-s', str(frame_shape[0])+'x'+str(frame_shape[1])]

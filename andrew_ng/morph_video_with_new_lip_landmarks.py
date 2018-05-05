@@ -10,11 +10,12 @@ import time
 import tqdm
 
 from scipy.io import loadmat
+from scipy.signal import medfilt
 from skimage.transform import resize
 
 import morph_video_config
 
-ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../'))
+ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '../'))
 sys.path.append(ROOT_DIR)
 import utils
 
@@ -112,7 +113,7 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
             required_number = time_end_frame - time_start_frame + 1 
 
         if verbose:
-            print("required_number", required_number)
+            print("required_number", required_number, ";", time_start_frame, "to", time_start_frame+required_number, "; last_landmark_frame", int(os.path.splitext(landmarks_full[-1][0])[0].split("_")[-1]))
 
         # EXTRACT LANDMARKS
         landmarks = []
@@ -162,7 +163,13 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
                 else:
                     landmarks.append(np.zeros((68, 2)))
 
-    return np.array(landmarks).astype('float'), frames_with_no_landmarks
+    # Convert to float array
+    landmarks = np.array(landmarks).astype('float')
+
+    # Use medan filter to smoothen the output
+    # landmarks = medfilt(landmarks, (13, 1, 1))
+
+    return landmarks, frames_with_no_landmarks
 
 
 def getOriginalKeypoints(kp_features_mouth, N, tilt, mean):
@@ -276,7 +283,7 @@ def transform_landmarks_by_mouth_centroid_and_scales(source_lip_landmarks, targe
 
 def tmp_morph_video_with_new_lip_landmarks(generator_model, target_video_file, target_audio_file, lip_landmarks_mat_file, output_video_name,
                                            save_faces_with_black_mouth_polygons=False, save_generated_faces=False,
-                                           save_both_faces_with_bmp=False, save_generated_video=True, verbose=False):
+                                           save_both_faces_with_bmp=False, save_generated_video=True, ffmpeg_overwrite=False, verbose=False):
 
     # Read predicted lip landmarks    
     mat = loadmat(lip_landmarks_mat_file)
@@ -286,12 +293,13 @@ def tmp_morph_video_with_new_lip_landmarks(generator_model, target_video_file, t
     morph_video_with_new_lip_landmarks(generator_model=generator_model, target_video_file=target_video_file,
                                        target_audio_file=target_audio_file, new_lip_landmarks=new_lip_landmarks, output_video_name=output_video_name,
                                        save_faces_with_black_mouth_polygons=save_faces_with_black_mouth_polygons, save_generated_faces=save_generated_faces,
-                                       save_both_faces_with_bmp=save_both_faces_with_bmp, save_generated_video=save_generated_video, verbose=verbose)
+                                       save_both_faces_with_bmp=save_both_faces_with_bmp, save_generated_video=save_generated_video, ffmpeg_overwrite=ffmpeg_overwrite,
+                                       verbose=verbose)
 
 
 def morph_video_with_new_lip_landmarks(generator_model, target_video_file, target_audio_file, new_lip_landmarks, output_video_name,
                                        save_faces_with_black_mouth_polygons=False, save_generated_faces=False,
-                                       save_both_faces_with_bmp=False, save_generated_video=True, verbose=False):
+                                       save_both_faces_with_bmp=False, save_generated_video=True, ffmpeg_overwrite=False, verbose=False):
 
     # Generator model input shape
     _, generator_model_input_rows, generator_model_input_cols, _ = generator_model.layers[0].input_shape
@@ -302,7 +310,7 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
     target_video_reader = imageio.get_reader(target_video_file)
     target_video_fps = target_video_reader.get_meta_data()['fps']
     if verbose:
-        print("target_video_fps:", target_video_fps)
+        print("target_video_length:", len(target_video_reader), "; target_video_fps:", target_video_fps)
 
     # Note source landmarks
     source_lip_landmarks = new_lip_landmarks
@@ -373,12 +381,14 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
     if save_faces_with_black_mouth_polygons:
         faces_with_bmp_output_video_name = os.path.splitext(output_video_name)[0] + '_faces_with_bmp.mp4'
         print("Saving faces with black mouth polygons as", faces_with_bmp_output_video_name)
-        utils.save_new_video_frames_with_target_audio_as_mp4(faces_with_black_mouth_polygons, target_video_fps, target_audio_file, output_file_name=faces_with_bmp_output_video_name, verbose=verbose)
+        utils.save_new_video_frames_with_target_audio_as_mp4(faces_with_black_mouth_polygons, target_video_fps, target_audio_file,
+                                                             output_file_name=faces_with_bmp_output_video_name, overwrite=ffmpeg_overwrite, verbose=verbose)
 
     if save_both_faces_with_bmp:
         both_faces_with_bmp_output_video_name = os.path.splitext(output_video_name)[0] + '_both_faces_with_bmp.mp4'
         print("Saving both faces with black mouth polygons as", both_faces_with_bmp_output_video_name)
-        utils.save_new_video_frames_with_target_audio_as_mp4(both_faces_with_bmp, target_video_fps, target_audio_file, output_file_name=both_faces_with_bmp_output_video_name, verbose=verbose)
+        utils.save_new_video_frames_with_target_audio_as_mp4(both_faces_with_bmp, target_video_fps, target_audio_file,
+                                                             output_file_name=both_faces_with_bmp_output_video_name, overwrite=ffmpeg_overwrite, verbose=verbose)
 
     if save_generated_video:
 
@@ -402,7 +412,9 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
             for i in range(len(new_faces)):
                 if frames_with_no_landmarks[i]:
                     new_faces[i] = both_faces_with_bmp[i][:, :generator_model_input_cols]
-            utils.save_new_video_frames_with_target_audio_as_mp4(new_faces, target_video_fps, target_audio_file, output_file_name=faces_output_video_name, verbose=verbose)
+            utils.save_new_video_frames_with_target_audio_as_mp4(new_faces, target_video_fps, target_audio_file,
+                                                                 output_file_name=faces_output_video_name,
+                                                                 overwrite=ffmpeg_overwrite, verbose=verbose)
    
         # Reintegrate generated faces into frames
         if verbose:
@@ -417,7 +429,9 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
 
         # Write new video
         print("Saving new frames as", output_video_name)
-        utils.save_new_video_frames_with_target_audio_as_mp4(new_frames, target_video_fps, target_audio_file, output_file_name=output_video_name, verbose=verbose)
+        utils.save_new_video_frames_with_target_audio_as_mp4(new_frames, target_video_fps, target_audio_file,
+                                                             output_file_name=output_video_name,
+                                                             overwrite=ffmpeg_overwrite, verbose=verbose)
 
 
 def assert_args(args):
@@ -458,6 +472,7 @@ if __name__ == '__main__':
     parser.add_argument('--save_both_faces_with_bmp', '-c', action="store_true")
     parser.add_argument('--dont_save_generated_video', '-d', action="store_true")
     parser.add_argument('--verbose', '-v', action="store_true")
+    parser.add_argument('--ffmpeg_overwrite', '-y', action="store_true")
     args = parser.parse_args()
 
     # EXAMPLE: python morph_video_with_new_lip_landmarks.py /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/CV_01_C4W1L01_000003_to_000045/CV_01_C4W1L01_000003_to_000045.mp4 -a /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/Obama/ouput_new5.aac -l /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/generated_hindi_landmarks/output5/generated_lip_landmarks.mat -b -f -c -v
@@ -479,6 +494,7 @@ if __name__ == '__main__':
                                                save_generated_faces=args.save_generated_faces,
                                                save_both_faces_with_bmp=args.save_both_faces_with_bmp,
                                                save_generated_video=args.save_generated_video,
+                                               ffmpeg_overwrite=args.ffmpeg_overwrite,
                                                verbose=args.verbose)
 
     except ValueError as e:
