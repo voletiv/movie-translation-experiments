@@ -8,7 +8,7 @@ import time
 from tqdm import tqdm
 
 import sys
-sys.path.append('../')
+sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), '../')))
 import utils
 from config import *
 
