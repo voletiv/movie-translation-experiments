@@ -18,7 +18,7 @@ def extract_lip_landmarks_from_mat(lip_landmarks_mat_file):
     return lip_landmarks
 
 
-def make_video_of_lip_landmarks(lip_landmarks_mat_file, video_fps=25, audio_file_name=None, output_file_name='lip_landmarks_video.mp4', verbose=False):
+def make_video_of_lip_landmarks(lip_landmarks_mat_file, video_fps=25, audio_file_name=None, output_file_name='lip_landmarks_video.mp4', ffmpeg_overwrite=False, verbose=False):
 
     # Extract lip landmarks from mat
     if verbose:
@@ -47,7 +47,7 @@ def make_video_of_lip_landmarks(lip_landmarks_mat_file, video_fps=25, audio_file
         print("frames", len(frames), frames[0].shape)
         print("Saving frames as video")
 
-    utils.save_new_video_frames_with_target_audio_as_mp4(frames, video_fps, audio_file_name, output_file_name=output_file_name, verbose=verbose)
+    utils.save_new_video_frames_with_target_audio_as_mp4(frames, video_fps, audio_file_name, output_file_name=output_file_name, ffmpeg_overwrite=ffmpeg_overwrite, verbose=verbose)
 
 
 if __name__ == '__main__':
@@ -57,6 +57,7 @@ if __name__ == '__main__':
     parser.add_argument('--fps', type=float, default=25, help="fps of video of landmarks")
     parser.add_argument('--audio_file_name', '-a', type=str, default=None, help="audio file of lip landmarks; eg. CV_05_C4W1L05_000001_to_000011.wav")
     parser.add_argument('--output_file_name', '-o', type=str, default='lip_landmarks_video.mp4', help="file name of output video")
+    parser.add_argument('--ffmpeg_overwrite', '-y', action="store_true")
     parser.add_argument('--verbose', '-v', action="store_true")
 
     args = parser.parse_args()
@@ -66,5 +67,6 @@ if __name__ == '__main__':
 
     # EXAMPLE: python make_video_of_lip_landmarks.py CV_05_C4W1L05_000001_to_000011_generated_lip_landmarks.mat -a CV_05_C4W1L05_000001_to_000011.wav -o CV_05_C4W1L05_000001_to_000011_lip_landmarks.mp4 -v
 
-    make_video_of_lip_landmarks(lip_landmarks_mat_file=args.lip_landmarks_mat_file, video_fps=args.fps, audio_file_name=args.audio_file_name, output_file_name=args.output_file_name, verbose=args.verbose)
+    make_video_of_lip_landmarks(lip_landmarks_mat_file=args.lip_landmarks_mat_file, video_fps=args.fps, audio_file_name=args.audio_file_name, output_file_name=args.output_file_name,
+                                ffmpeg_overwrite=args.ffmpeg_overwrite, verbose=args.verbose)
 
