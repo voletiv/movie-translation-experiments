@@ -185,8 +185,10 @@ def extract_person_face_frames(video_file, out_dir, person_name,
     # dlib face detector
     if dlib_face_detector is None:
         if cnn_face_detector_path is None:
+            print("dlib face detector and cnn_face_detector_path are not given. Loading frontal_face_detector()")
             dlib_face_detector = dlib.get_frontal_face_detector()
         else:
+            print("dlib face detector is not given. Loading dlib cnn_face_detector from", cnn_face_detector_path)
             dlib_face_detector = dlib.cnn_face_detection_model_v1(cnn_face_detector_path)
 
     # dlib facial landmarks detector (shape predictor)
@@ -483,5 +485,5 @@ def get_person_face_lm_from_face_shapes(frame, face_shapes, person_face_descript
         # If there are no faces in the frame, return None
         return None
 
-    # Return the landamrks of their face in frame
+    # Return the landmarks of their face in frame
     return utils.shape_to_landmarks(face_shapes[least_dist_face])
