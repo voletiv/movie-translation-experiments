@@ -38,9 +38,44 @@ def interpolate_landmarks_to_new_fps(landmarks_in_frames, video_fps_old, video_f
     return landmarks_in_frames_new
 
 
+def stabilize(landmarks):
+
+    new_landmarks = []
+    new_landmarks.append(landmarks[0])
+    M = np.zeros((2, 3))
+
+    for i in range(1, len(landmarks)):
+
+        top_y = landmarks[i][:, 1].min()
+        top_y_prev = new_landmarks[-1][:, 1].min()
+        bottom_y = landmarks[i][48:68, 1].mean()
+        bottom_y_prev = new_landmarks[-1][48:68, 1].mean()
+
+        scale_y = (bottom_y_prev - top_y_prev) / (bottom_y - top_y)
+
+        scaled_lm = landmarks[i]
+        if scale_y > 1.05:
+            scaled_lm[:, 1] = (scaled_lm[:, 1] - top_y)*scale_y + top_y
+
+        new_landmarks.append(scaled_lm)
+        '''
+        source_landmarks = landmarks[i][[0, 8, 16], :].astype('float32')
+        target_landmarks = new_landmarks[-1][[0, 8, 16], :].astype('float32')
+        M = cv2.getAffineTransform(source_landmarks, target_landmarks)
+        if M is None:
+            M = prev_M
+        else:
+            if np.all(M == np.zeros((2, 3))):
+                M = np.array([[1, 0, 0], [0, 1, 0]]).astype('float')
+            prev_M = M
+        new_landmarks.append(np.round( np.dot( M, np.hstack(( landmarks[i], np.ones((len(landmarks[i]), 1)) )).T ).T ))
+        '''
+    return np.array(new_landmarks).astype('float')
+
+
 def read_video_landmarks(video_frames=None, # Either read landmarks for each frame
-                         read_from_landmarks_file=True, landmarks_file=None, # Or, read from landmarks_file (if landmarks_file is not None)
-                         video_file_name=None, landmarks_type='frames', video_fps=morph_video_config.ANDREW_NG_VIDEO_FPS, # Or, read from appropriate landmarks_file of video_file_name (if landmarks_file is None, and video_file_name is not None)
+                         read_from_landmarks_file=True, video_landmarks_file=None, # Or, read from landmarks_file (if video_landmarks_file is not None)
+                         video_file_name=None, landmarks_type='frames', video_fps=morph_video_config.ANDREW_NG_VIDEO_FPS, # Or, read from appropriate landmarks_file of video_file_name (if video_landmarks_file is None, and video_file_name is not None)
                          dataset_dir=morph_video_config.dataset_dir, person=morph_video_config.person,
                          required_number=None, verbose=False):
     """
@@ -60,7 +95,7 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
         if verbose:
             print("read_video_landmarks: read_from_landmarks_file")
 
-        if landmarks_file == None:
+        if video_landmarks_file == None:
 
             # Find appropriate landmarks_file based on video_file_name
             if verbose:
@@ -100,6 +135,9 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
             if not this_one:
                 raise ValueError("ERROR: could not find any landmarks file for the video_file_name" + video_file_name)
 
+        else:
+            landmarks_file = video_landmarks_file
+
         if verbose:
             print("read_video_landmarks: Found landmarks file", landmarks_file)
 
@@ -107,7 +145,7 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
         landmarks_full = utils.read_landmarks_list_from_txt(landmarks_file)
 
         # FROM frame
-        if landmarks_file == None:
+        if video_landmarks_file == None:
             # If landmarks_file is not mentioned, find the time_start_index (and maybe required_number) from video_file_name
             try:
                 # Find time start frame number from video_file_name, if it exists
@@ -131,7 +169,7 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
 
         # If required number is not given, make it total length of video
         if required_number is None:
-            if landmarks_file == None:
+            if video_landmarks_file == None:
                 try:
                     # Find time end frame number from video_file_name, if it exists
                     time_end_index = time_start_index + 10
@@ -203,6 +241,9 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
 
     # Use medan filter to smoothen the output
     # landmarks = medfilt(landmarks, (13, 1, 1))
+
+    # Stabilize landmarks
+    landmarks = stabilize(landmarks)
 
     return landmarks, frames_with_no_landmarks
 
@@ -370,7 +411,7 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
             break
 
     # Read target_video_file's frame landmarks
-    target_all_landmarks_in_frames, frames_with_no_landmarks = read_video_landmarks(video_file_name=target_video_file, read_from_landmarks_file=True, landmarks_file=target_video_landmarks_file,
+    target_all_landmarks_in_frames, frames_with_no_landmarks = read_video_landmarks(video_file_name=target_video_file, read_from_landmarks_file=True, video_landmarks_file=target_video_landmarks_file,
                                                                                     landmarks_type='frames', required_number=num_of_frames, video_fps=target_video_fps, verbose=verbose)
 
     # Make new images of faces with black mouth polygons
@@ -519,6 +560,8 @@ if __name__ == '__main__':
     # EXAMPLE: python morph_video_with_new_lip_landmarks.py /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/CV_01_C4W1L01_000003_to_000045/CV_01_C4W1L01_000003_to_000045.mp4 -a /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/Obama/ouput_new5.aac -l /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/generated_hindi_landmarks/output5/generated_lip_landmarks.mat -b -f -c -v
 
     # EXAMPLE: python /shared/fusor/home/voleti.vikram/movie-translation-experiments/andrew_ng/morph_video_with_new_lip_landmarks.py /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/CV_01_C4W1L01_000003_to_000045/CV_01_C4W1L01_000003_to_000045.mp4 -a /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/genhindi_erated_landmarks/test_wav/CV_05_C4W1L05_000001_to_000011.wav -l /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/genhindi_erated_landmarks/CV_05_C4W1L05_000001_to_000011_generated_lip_landmarks.mat -o /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/visdub_hindi/CV_05_C4W1L05_000001_to_000011_with_generated_lip_landmarks_upper_lip.mp4 -v
+
+    # EXAMPLE: python /home/voleti.vikram/movie-translation-experiments/andrew_ng/morph_video_with_new_lip_landmarks.py /home/voleti.vikram/ANDREW_NG/ABHISHEK/videos/CV_01_C4W1L01_000003_to_000045/CV_01_C4W1L01_000003_to_000045.mp4 -t /home/voleti.vikram/ANDREW_NG_CLIPS/landmarks_in_frames_person/CV_01_C4W1L01_000003_to_000045_CV_01_C4W1L01_000003_to_000045_landmarks_in_frames_andrew_ng.txt -a /home/voleti.vikram/ANDREW_NG/ABHISHEK/videos/CV_01_C4W1L01_000003_to_000045/CV_01_C4W1L01_000003_to_000045_hindi_abhishek.wav -l /home/voleti.vikram/ANDREW_NG/ABHISHEK/videos/CV_01_C4W1L01_000003_to_000045/CV_01_C4W1L01_000003_to_000045_hindi_abhishek_generated_lip_landmarks.mat -o /home/voleti.vikram/ANDREW_NG/ABHISHEK/videos/CV_01_C4W1L01_000003_to_000045/CV_01_C4W1L01_000003_to_000045_hindi_abhishek.mp4 -b -v -y
 
     # Assert args
     assert_args(args)
