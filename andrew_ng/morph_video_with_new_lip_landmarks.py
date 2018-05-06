@@ -9,6 +9,7 @@ import sys
 import time
 import tqdm
 
+from scipy import interpolate
 from scipy.io import loadmat
 from scipy.signal import medfilt
 from skimage.transform import resize
@@ -18,6 +19,23 @@ import morph_video_config
 ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '../'))
 sys.path.append(ROOT_DIR)
 import utils
+
+
+def interpolate_landmarks_to_new_fps(landmarks_in_frames, video_fps_old, video_fps_new):
+    if video_fps_old == video_fps_new:
+        return landmarks_in_frames
+    x = np.arange(len(landmarks_in_frames))
+    x_new = np.arange(0, len(landmarks_in_frames),
+                      (len(landmarks_in_frames) - 1)/(len(landmarks_in_frames)/video_fps_old*video_fps_new - 1))
+    x_new[x_new > x[-1]] = x[-1]
+    landmarks_in_frames_new = np.zeros((len(x_new), *landmarks_in_frames.shape[1:]))
+    for lm in range(landmarks_in_frames.shape[1]):
+        for d in range(2):
+            y = landmarks_in_frames[:, lm, d]
+            f = interpolate.interp1d(x, y)
+            y_new = f(x_new)
+            landmarks_in_frames_new[:, lm, d] = y_new
+    return landmarks_in_frames_new
 
 
 def read_video_landmarks(video_frames=None, # Either read landmarks for each frame
@@ -314,6 +332,10 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
 
     # Note source landmarks
     source_lip_landmarks = new_lip_landmarks
+
+    # Change fps of landmarks to target_fps from 25
+    source_lip_landmarks = interpolate_landmarks_to_new_fps(source_lip_landmarks, morph_video_config.generated_lip_landmarks_fps, target_video_fps)
+
     num_of_frames = len(source_lip_landmarks)
     if verbose:
         print("Number of frames:", num_of_frames)
