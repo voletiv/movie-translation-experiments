@@ -31,6 +31,7 @@ def extract_person_face_frames(video_file, out_dir, person_name,
                                save_faces=False,
                                save_faces_combined_with_blackened_mouths_and_lip_polygons=True,
                                skip_frames=0,
+                               fast=True, prev_mean=np.array([726., 241.]),
                                verbose=False):
     """!@brief Reads frames, checks for person in every 10th frame; if person is present,
     processes all 10 frames for landmarks - detects faces in each frame, chooses the right
@@ -185,10 +186,8 @@ def extract_person_face_frames(video_file, out_dir, person_name,
     # dlib face detector
     if dlib_face_detector is None:
         if cnn_face_detector_path is None:
-            print("dlib face detector and cnn_face_detector_path are not given. Loading frontal_face_detector()")
             dlib_face_detector = dlib.get_frontal_face_detector()
         else:
-            print("dlib face detector is not given. Loading dlib cnn_face_detector from", cnn_face_detector_path)
             dlib_face_detector = dlib.cnn_face_detection_model_v1(cnn_face_detector_path)
 
     # dlib facial landmarks detector (shape predictor)
@@ -328,7 +327,7 @@ def extract_person_face_frames(video_file, out_dir, person_name,
 
             # Check if 10th frame has faces
             face_shapes_in_frame_10 = utils.get_all_face_shapes(frame, dlib_face_detector, dlib_shape_predictor)
-            person_landmarks_in_frame_10 = get_person_face_lm_from_face_shapes(frame, face_shapes_in_frame_10, person_face_descriptor, dlib_facerec)
+            person_landmarks_in_frame_10 = get_person_face_lm_from_face_shapes(frame, face_shapes_in_frame_10, person_face_descriptor, dlib_facerec, fast=False)
 
             # If person's face is not present, and was not present in previous batch - reset and continue
             if person_landmarks_in_frame_10 is None and not detect_face_shapes:
@@ -343,18 +342,19 @@ def extract_person_face_frames(video_file, out_dir, person_name,
                 for batch_frame_number, batch_frame in zip(batch_frame_numbers, batch_frames):
                     face_shapes_in_frames_all_persons, \
                     person_frames_landmarks, \
-                    person_faces_landmarks = detect_person_face_and_shape(batch_frame, batch_frame_number,
-                                                                          video_file_name=video_file_name, person_name=person_name,
-                                                                          save_frames=save_frames, frames_dir=frames_dir,
-                                                                          save_faces=save_faces, faces_dir=faces_dir,
-                                                                          save_faces_combined_with_blackened_mouths_and_lip_polygons=save_faces_combined_with_blackened_mouths_and_lip_polygons,
-                                                                          faces_combined_dir=faces_combined_dir,
-                                                                          dlib_face_detector=dlib_face_detector, dlib_shape_predictor=dlib_shape_predictor,
-                                                                          face_shapes_in_frames_all_persons=face_shapes_in_frames_all_persons,
-                                                                          person_face_descriptor=person_face_descriptor, dlib_facerec=dlib_facerec,
-                                                                          person_frames_landmarks=person_frames_landmarks,
-                                                                          resize_to_shape=resize_to_shape,
-                                                                          person_faces_landmarks=person_faces_landmarks)
+                    person_faces_landmarks, prev_mean = detect_person_face_and_shape(batch_frame, batch_frame_number,
+                                                                                     video_file_name=video_file_name, person_name=person_name,
+                                                                                     save_frames=save_frames, frames_dir=frames_dir,
+                                                                                     save_faces=save_faces, faces_dir=faces_dir,
+                                                                                     save_faces_combined_with_blackened_mouths_and_lip_polygons=save_faces_combined_with_blackened_mouths_and_lip_polygons,
+                                                                                     faces_combined_dir=faces_combined_dir,
+                                                                                     dlib_face_detector=dlib_face_detector, dlib_shape_predictor=dlib_shape_predictor,
+                                                                                     face_shapes_in_frames_all_persons=face_shapes_in_frames_all_persons,
+                                                                                     person_face_descriptor=person_face_descriptor, dlib_facerec=dlib_facerec,
+                                                                                     person_frames_landmarks=person_frames_landmarks,
+                                                                                     resize_to_shape=resize_to_shape,
+                                                                                     person_faces_landmarks=person_faces_landmarks,
+                                                                                     fast=fast, prev_mean=prev_mean)
                 detect_face_shapes = False
                 
 
@@ -365,18 +365,19 @@ def extract_person_face_frames(video_file, out_dir, person_name,
                 for batch_frame_number, batch_frame in zip(batch_frame_numbers, batch_frames):
                     face_shapes_in_frames_all_persons, \
                     person_frames_landmarks, \
-                    person_faces_landmarks = detect_person_face_and_shape(batch_frame, batch_frame_number,
-                                                                          video_file_name=video_file_name, person_name=person_name,
-                                                                          save_frames=save_frames, frames_dir=frames_dir,
-                                                                          save_faces=save_faces, faces_dir=faces_dir,
-                                                                          save_faces_combined_with_blackened_mouths_and_lip_polygons=save_faces_combined_with_blackened_mouths_and_lip_polygons,
-                                                                          faces_combined_dir=faces_combined_dir,
-                                                                          dlib_face_detector=dlib_face_detector, dlib_shape_predictor=dlib_shape_predictor,
-                                                                          face_shapes_in_frames_all_persons=face_shapes_in_frames_all_persons,
-                                                                          person_face_descriptor=person_face_descriptor, dlib_facerec=dlib_facerec,
-                                                                          person_frames_landmarks=person_frames_landmarks,
-                                                                          resize_to_shape=resize_to_shape,
-                                                                          person_faces_landmarks=person_faces_landmarks)
+                    person_faces_landmarks, prev_mean = detect_person_face_and_shape(batch_frame, batch_frame_number,
+                                                                                     video_file_name=video_file_name, person_name=person_name,
+                                                                                     save_frames=save_frames, frames_dir=frames_dir,
+                                                                                     save_faces=save_faces, faces_dir=faces_dir,
+                                                                                     save_faces_combined_with_blackened_mouths_and_lip_polygons=save_faces_combined_with_blackened_mouths_and_lip_polygons,
+                                                                                     faces_combined_dir=faces_combined_dir,
+                                                                                     dlib_face_detector=dlib_face_detector, dlib_shape_predictor=dlib_shape_predictor,
+                                                                                     face_shapes_in_frames_all_persons=face_shapes_in_frames_all_persons,
+                                                                                     person_face_descriptor=person_face_descriptor, dlib_facerec=dlib_facerec,
+                                                                                     person_frames_landmarks=person_frames_landmarks,
+                                                                                     resize_to_shape=resize_to_shape,
+                                                                                     person_faces_landmarks=person_faces_landmarks,
+                                                                                     fast=fast, prev_mean=prev_mean)
                 detect_face_shapes = True
 
             # Reset batch_frame_numbers and batch_frames
@@ -407,7 +408,9 @@ def detect_person_face_and_shape(frame, frame_number, video_file_name, person_na
                                  face_shapes_in_frames_all_persons,
                                  person_face_descriptor, dlib_facerec,
                                  person_frames_landmarks, resize_to_shape,
-                                 person_faces_landmarks):
+                                 person_faces_landmarks,
+                                 fast=False,
+                                 prev_mean=np.array([726., 241.])):
 
     # Image names
     video_frame_base_name = video_file_name + "_frame_{0:05d}.png".format(frame_number)
@@ -427,10 +430,12 @@ def detect_person_face_and_shape(frame, frame_number, video_file_name, person_na
     face_shapes_in_frames_all_persons.append([video_frame_base_name] + face_shapes_in_frame)
 
     # Get person's face shape if face is present
-    person_landmarks_in_frame = get_person_face_lm_from_face_shapes(frame, face_shapes_in_frame, person_face_descriptor, dlib_facerec)
+    person_landmarks_in_frame = get_person_face_lm_from_face_shapes(frame, face_shapes_in_frame, person_face_descriptor, dlib_facerec, fast=fast, prev_mean=prev_mean)
     
     # If person's face is present
     if person_landmarks_in_frame is not None:
+
+        prev_mean = np.mean(person_landmarks_in_frame, axis=0)
 
         # Save the frame
         if save_frames:
@@ -459,31 +464,46 @@ def detect_person_face_and_shape(frame, frame_number, video_file_name, person_na
             face_combined = np.hstack((face_square_expanded_resized, face_with_blackened_mouth_and_lip_polygons))
             imageio.imwrite(video_face_combined_name, face_combined)
 
-    return face_shapes_in_frames_all_persons, person_frames_landmarks, person_faces_landmarks
+    return face_shapes_in_frames_all_persons, person_frames_landmarks, person_faces_landmarks, prev_mean
 
 
-def get_person_face_lm_from_face_shapes(frame, face_shapes, person_face_descriptor, dlib_facerec):
+def get_person_face_lm_from_face_shapes(frame, face_shapes, person_face_descriptor, dlib_facerec, fast=False, prev_mean=np.array([726., 241.])):
     '''Get the facial landmarks of a specific person
     http://dlib.net/face_recognition.py.html
     '''
 
-    # Compute the face descriptors
-    face_descriptors = []
-    for shape in face_shapes:
-        face_descriptors.append(np.array(dlib_facerec.compute_face_descriptor(frame, shape)))
+    if not fast:
+        # Compute the face descriptors
+        face_descriptors = []
+        for shape in face_shapes:
+            face_descriptors.append(np.array(dlib_facerec.compute_face_descriptor(frame, shape)))
 
-    # Compare the face descriptors
-    face_descriptors_distance = np.linalg.norm(person_face_descriptor - np.array(face_descriptors).reshape(len(face_descriptors), person_face_descriptor.shape[-1]), axis=-1)
+        # Compare the face descriptors
+        face_descriptors_distance = np.linalg.norm(person_face_descriptor - np.array(face_descriptors).reshape(len(face_descriptors), person_face_descriptor.shape[-1]), axis=-1)
 
-    # Choose the face with least distance, if least distance is less than 0.6
-    try:
-        least_dist_face = np.argmin(face_descriptors_distance)
-        # If the least distant face is > 0.6, it's someone else's face
-        if least_dist_face > 0.6:
+        # Choose the face with least distance, if least distance is less than 0.6
+        try:
+            least_dist_face = np.argmin(face_descriptors_distance)
+            # If the least distant face is > 0.6, it's someone else's face
+            if least_dist_face > 0.6:
+                return None
+        except ValueError:
+            # If there are no faces in the frame, return None
             return None
-    except ValueError:
-        # If there are no faces in the frame, return None
-        return None
+ 
+        # Return the landamrks of their face in frame
+        return utils.shape_to_landmarks(face_shapes[least_dist_face])
 
-    # Return the landmarks of their face in frame
-    return utils.shape_to_landmarks(face_shapes[least_dist_face])
+    else:
+        if len(face_shapes) == 0:
+            return None
+
+        elif len(face_shapes) == 1:
+            return utils.shape_to_landmarks(face_shapes[0])
+
+        else:
+            # Compare distances with previous mean
+            distances_to_prev_mean = [np.linalg.norm(prev_mean -  np.array([(point.x, point.y) for point in face_shape.parts()]).mean(axis=0)) for face_shape in face_shapes]
+            least_dist_face = np.argmin(distances_to_prev_mean)
+            return utils.shape_to_landmarks(face_shapes[least_dist_face])
+
