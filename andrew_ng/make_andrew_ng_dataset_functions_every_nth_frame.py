@@ -439,10 +439,10 @@ def detect_person_face_and_shape(frame, frame_number, video_file_name, person_na
 
         # Get the face - squared, expanded, resized
         face_square_expanded_resized, \
-        landmarks_in_face_square_expanded_resized = utils.get_square_expand_resize_face_and_modify_landmarks(frame,
-                                                                                                             person_landmarks_in_frame,
-                                                                                                             resize_to_shape=resize_to_shape,
-                                                                                                             face_square_expanded_resized=True)
+        landmarks_in_face_square_expanded_resized, _, _ = utils.get_square_expand_resize_face_and_modify_landmarks(frame,
+                                                                                                                   person_landmarks_in_frame,
+                                                                                                                   resize_to_shape=resize_to_shape,
+                                                                                                                   face_square_expanded_resized=True)
 
         # Note the landmark coordinates w.r.t. the face_frame
         person_faces_landmarks.append([video_face_base_name] + [list(l) for l in landmarks_in_face_square_expanded_resized])

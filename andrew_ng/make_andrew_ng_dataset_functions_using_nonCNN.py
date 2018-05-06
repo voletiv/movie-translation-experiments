@@ -359,9 +359,9 @@ def extract_person_face_frames(video_file, out_dir, person_name,
                 person_frame_landmarks.append([video_frame_base_name] + [list(l) for l in person_landmarks_in_frame])
     
                 # Get the face frame - square, expanded, resized
-                face_square_expanded_resized, landmarks_in_face_square_expanded_resized = utils.get_square_expand_resize_face_and_modify_landmarks(frame, person_landmarks_in_frame,
-                                                                                                                                                   resize_to_shape=resize_to_shape,
-                                                                                                                                                   face_square_expanded_resized=True)
+                face_square_expanded_resized, landmarks_in_face_square_expanded_resized, _, _ = utils.get_square_expand_resize_face_and_modify_landmarks(frame, person_landmarks_in_frame,
+                                                                                                                                                         resize_to_shape=resize_to_shape,
+                                                                                                                                                         face_square_expanded_resized=True)
 
                 if profile_time:
                     get_modified_face_time = time.time()
