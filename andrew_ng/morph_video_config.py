@@ -4,3 +4,6 @@ generator_model = '/home/voleti.vikram/DeepLearningImplementations/pix2pix/model
 dataset_dir = '/shared/fusor/home/voleti.vikram/ANDREW_NG'
 person = 'andrew_ng'
 
+ANDREW_NG_VIDEO_FPS = 30
+generated_lip_landmarks_fps = 25
+
