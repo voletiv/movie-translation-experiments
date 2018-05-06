@@ -39,7 +39,8 @@ def interpolate_landmarks_to_new_fps(landmarks_in_frames, video_fps_old, video_f
 
 
 def read_video_landmarks(video_frames=None, # Either read landmarks for each frame
-                         video_file_name=None, read_from_landmarks_file=True, landmarks_type='frames', video_fps=24, # Or, read from video landmarks_file
+                         read_from_landmarks_file=True, landmarks_file=None, # Or, read from landmarks_file (if landmarks_file is not None)
+                         video_file_name=None, landmarks_type='frames', video_fps=morph_video_config.ANDREW_NG_VIDEO_FPS, # Or, read from appropriate landmarks_file of video_file_name (if landmarks_file is None, and video_file_name is not None)
                          dataset_dir=morph_video_config.dataset_dir, person=morph_video_config.person,
                          required_number=None, verbose=False):
     """
@@ -57,41 +58,47 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
     if read_from_landmarks_file:
 
         if verbose:
-            print("read_video_landmarks: read_from_landmarks_file for", video_file_name)
+            print("read_video_landmarks: read_from_landmarks_file")
 
-        if video_file_name == None:
-            raise ValueError("ERROR: read_video_frame_landmarks: video_file_name needs to be given, since read_from_landmarks_file=True!")
+        if landmarks_file == None:
 
-        if not os.path.exists(dataset_dir):
-            raise ValueError("ERROR: dataset_dir does not exist! Given:" + dataset_dir)
-   
-        if landmarks_type == 'frames': 
-            landmarks_dir = os.path.join(dataset_dir, 'landmarks_in_frames_person')
-        elif landmarks_type == 'faces':
-            landmarks_dir = os.path.join(dataset_dir, 'landmarks_in_faces_person')    
-        else:
-            raise ValueError("ERROR: landmarks_type can only be 'frames' or 'faces'! Given:" + landmarks_type)
-
-        if not os.path.exists(landmarks_dir):
-            raise ValueError("ERROR: landmarks_in_frames_person_dir not not exist! Given:" + landmarks_in_frames_person_dir)
+            # Find appropriate landmarks_file based on video_file_name
+            if verbose:
+                print("read_video_landmarks: read landmarks for video_file_name", video_file_name)
     
-        # Read all landmarks files
-        landmarks_files = sorted(glob.glob(os.path.join(landmarks_dir, '*.txt')))
+            if video_file_name == None:
+                raise ValueError("ERROR: read_video_frame_landmarks: video_file_name needs to be given, since read_from_landmarks_file=True!")
     
-        # Get the right landmark_file by checking for video_file_name_checks in each landmark_file
-        video_file_name_checks = os.path.basename(video_file_name).split('_')[:3] + [person]
-        for landmarks_file in landmarks_files:
-            this_one = True
-            for video_file_name_check in video_file_name_checks:
-                if video_file_name_check in landmarks_file:
-                    this_one = this_one & True
-                else:
-                    this_one = this_one & False
-            if this_one:
-                break
+            if not os.path.exists(dataset_dir):
+                raise ValueError("ERROR: dataset_dir does not exist! Given:" + dataset_dir)
 
-        if not this_one:
-            raise ValueError("ERROR: could not find any landmarks file for the video_file_name" + video_file_name)
+            if landmarks_type == 'frames':
+                landmarks_dir = os.path.join(dataset_dir, 'landmarks_in_frames_person')
+            elif landmarks_type == 'faces':
+                landmarks_dir = os.path.join(dataset_dir, 'landmarks_in_faces_person')
+            else:
+                raise ValueError("ERROR: landmarks_type can only be 'frames' or 'faces'! Given:" + landmarks_type)
+
+            if not os.path.exists(landmarks_dir):
+                raise ValueError("ERROR: landmarks_in_frames_person_dir not not exist! Given:" + landmarks_in_frames_person_dir)
+
+            # Read all landmarks files
+            landmarks_files = sorted(glob.glob(os.path.join(landmarks_dir, '*.txt')))
+
+            # Get the right landmark_file by checking for video_file_name_checks in each landmark_file
+            video_file_name_checks = os.path.basename(video_file_name).split('_')[:3] + [person]
+            for landmarks_file in landmarks_files:
+                this_one = True
+                for video_file_name_check in video_file_name_checks:
+                    if video_file_name_check in landmarks_file:
+                        this_one = this_one & True
+                    else:
+                        this_one = this_one & False
+                if this_one:
+                    break
+
+            if not this_one:
+                raise ValueError("ERROR: could not find any landmarks file for the video_file_name" + video_file_name)
 
         if verbose:
             print("read_video_landmarks: Found landmarks file", landmarks_file)
