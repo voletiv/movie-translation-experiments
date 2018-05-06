@@ -1,4 +1,5 @@
 import cv2
+import dlib
 import imageio
 import matplotlib.pyplot as plt
 import numpy as np
@@ -102,8 +103,10 @@ def get_landmarks_using_dlib_detector_and_predictor(frame, detector, predictor):
         # TODO: Use dlib recognition model to verify face
         # Choose first face
         face = faces[0]
+        face_exp = expand_rect([face.left(), face.top(), face.right(), face.bottom()], scale=1.5, frame_shape=frame.shape)
+        face_exp = dlib.rectangle(face_exp[0], face_exp[1], face_exp[2], face_exp[3])
         # Detect landmarks
-        shape = predictor(frame, face)
+        shape = predictor(frame, face_exp)
         landmarks = [[shape.part(i).x, shape.part(i).y] for i in range(68)]
         return np.round(landmarks).astype('int')
     else:
@@ -118,7 +121,9 @@ def get_all_face_shapes(img, detector, predictor):
     faces = detector(img, 1)
     face_shapes = []
     for face in faces:
-        shape = predictor(img, face)
+        face_exp = expand_rect([face.left(), face.top(), face.right(), face.bottom()], scale=1.5, frame_shape=img.shape)
+        face_exp = dlib.rectangle(face_exp[0], face_exp[1], face_exp[2], face_exp[3])
+        shape = predictor(img, face_exp)
         # landmarks = np.round([[shape.part(i).x, shape.part(i).y] for i in range(68)]).astype('int')
         face_shapes.append(shape)
     return face_shapes
