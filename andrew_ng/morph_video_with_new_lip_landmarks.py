@@ -107,17 +107,23 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
         landmarks_full = utils.read_landmarks_list_from_txt(landmarks_file)
 
         # FROM frame
-        try:
-            # Find time start frame number from video_file_name, if it exists
-            time_start_index = re.search(r"[0-9][0-9][0-9][0-9][0-9][0-9]_to_[0-9][0-9][0-9][0-9][0-9][0-9]", video_file_name).start()
-            time_start_hr = int(video_file_name[time_start_index:time_start_index+2])
-            time_start_min = int(video_file_name[time_start_index+2:time_start_index+4])
-            time_start_sec = int(video_file_name[time_start_index+4:time_start_index+6])
-            time_start_frame = int(video_fps * (time_start_hr*3600 + time_start_min*60 + time_start_sec))
-            if verbose:
-                print(video_file_name[time_start_index:time_start_index+15], time_start_hr, time_start_min, time_start_sec, time_start_frame)
-        except:
-            # Else, start from first frame
+        if landmarks_file == None:
+            # If landmarks_file is not mentioned, find the time_start_index (and maybe required_number) from video_file_name
+            try:
+                # Find time start frame number from video_file_name, if it exists
+                time_start_index = re.search(r"[0-9][0-9][0-9][0-9][0-9][0-9]_to_[0-9][0-9][0-9][0-9][0-9][0-9]", video_file_name).start()
+                time_start_hr = int(video_file_name[time_start_index:time_start_index+2])
+                time_start_min = int(video_file_name[time_start_index+2:time_start_index+4])
+                time_start_sec = int(video_file_name[time_start_index+4:time_start_index+6])
+                time_start_frame = int(video_fps * (time_start_hr*3600 + time_start_min*60 + time_start_sec))
+                if verbose:
+                    print(video_file_name[time_start_index:time_start_index+15], time_start_hr, time_start_min, time_start_sec, time_start_frame)
+            except:
+                # Else, start from first frame
+                time_start_frame = 0
+
+        else:
+            # If landmarks_file is specified, start from first frame in landmarks_file
             time_start_frame = 0
 
         if verbose:
@@ -125,14 +131,18 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
 
         # If required number is not given, make it total length of video
         if required_number is None:
-            try:
-                # Find time end frame number from video_file_name, if it exists
-                time_end_index = time_start_index + 10
-                time_end_hr = int(video_file_name[time_end_index:time_end_index+2])
-                time_end_min = int(video_file_name[time_end_index+2:time_end_index+4])
-                time_end_sec = int(video_file_name[time_end_index+4:time_end_index+6])
-                time_end_frame = int(video_fps * (time_end_hr*3600 + time_end_min*60 + time_end_sec))
-            except:
+            if landmarks_file == None:
+                try:
+                    # Find time end frame number from video_file_name, if it exists
+                    time_end_index = time_start_index + 10
+                    time_end_hr = int(video_file_name[time_end_index:time_end_index+2])
+                    time_end_min = int(video_file_name[time_end_index+2:time_end_index+4])
+                    time_end_sec = int(video_file_name[time_end_index+4:time_end_index+6])
+                    time_end_frame = int(video_fps * (time_end_hr*3600 + time_end_min*60 + time_end_sec))
+                except:
+                    # Else, end at last landmark frame
+                    time_end_frame = int(os.path.splitext(landmarks_full[-1][0])[0].split("_")[-1])
+            else:
                 # Else, end at last landmark frame
                 time_end_frame = int(os.path.splitext(landmarks_full[-1][0])[0].split("_")[-1])
             required_number = time_end_frame - time_start_frame + 1 
@@ -307,7 +317,7 @@ def transform_landmarks_by_mouth_centroid_and_scales(source_lip_landmarks, targe
 
 
 def tmp_morph_video_with_new_lip_landmarks(generator_model, target_video_file, target_audio_file, lip_landmarks_mat_file, output_video_name,
-                                           save_faces_with_black_mouth_polygons=False, save_generated_faces=False,
+                                           target_video_landmarks_file=None, save_faces_with_black_mouth_polygons=False, save_generated_faces=False,
                                            save_both_faces_with_bmp=False, save_generated_video=True, ffmpeg_overwrite=False, verbose=False):
 
     # Read predicted lip landmarks    
@@ -317,13 +327,14 @@ def tmp_morph_video_with_new_lip_landmarks(generator_model, target_video_file, t
     # Call the actual function
     morph_video_with_new_lip_landmarks(generator_model=generator_model, target_video_file=target_video_file,
                                        target_audio_file=target_audio_file, new_lip_landmarks=new_lip_landmarks, output_video_name=output_video_name,
+                                       target_video_landmarks_file=target_video_landmarks_file,
                                        save_faces_with_black_mouth_polygons=save_faces_with_black_mouth_polygons, save_generated_faces=save_generated_faces,
                                        save_both_faces_with_bmp=save_both_faces_with_bmp, save_generated_video=save_generated_video, ffmpeg_overwrite=ffmpeg_overwrite,
                                        verbose=verbose)
 
 
 def morph_video_with_new_lip_landmarks(generator_model, target_video_file, target_audio_file, new_lip_landmarks, output_video_name,
-                                       save_faces_with_black_mouth_polygons=False, save_generated_faces=False,
+                                       target_video_landmarks_file=None, save_faces_with_black_mouth_polygons=False, save_generated_faces=False,
                                        save_both_faces_with_bmp=False, save_generated_video=True, ffmpeg_overwrite=False, verbose=False):
 
     # Generator model input shape
@@ -359,8 +370,8 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
             break
 
     # Read target_video_file's frame landmarks
-    target_all_landmarks_in_frames, frames_with_no_landmarks = read_video_landmarks(video_file_name=target_video_file, read_from_landmarks_file=True, landmarks_type='frames',
-                                                                                    required_number=num_of_frames, video_fps=target_video_fps, verbose=verbose)
+    target_all_landmarks_in_frames, frames_with_no_landmarks = read_video_landmarks(video_file_name=target_video_file, read_from_landmarks_file=True, landmarks_file=target_video_landmarks_file,
+                                                                                    landmarks_type='frames', required_number=num_of_frames, video_fps=target_video_fps, verbose=verbose)
 
     # Make new images of faces with black mouth polygons
     face_rect_in_frames = []
@@ -493,6 +504,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Morph lips in input video with target lip landmarks')
     parser.add_argument('target_video_file', type=str, help="target video (.mp4); eg. /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/CV_01_C4W1L01_000003_to_000045/CV_01_C4W1L01_000003_to_000045.mp4")
     parser.add_argument('--target_audio_file', '-a', type=str, default=None, help="target audio; eg. /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/Obama/ouput_new5.mp3")
+    parser.add_argument('--target_video_landmarks_file', '-t', type=str, default=None, help="landmarks file of target video; eg. /shared/fusor/home/voleti.vikram/ANDREW_NG_CLIPS/landmarks_in_frames_person/CV_01_C4W1L01_000003_to_000045/")
     parser.add_argument('--lip_landmarks_mat_file', '-l',type=str, help="Predicted and target lip landmarks; eg. /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/generated_hindi_landmarks/output5/generated_lip_landmarks.mat")
     parser.add_argument('--output_video_name', '-o', type=str, default=None, help="Name of output video; def: <input_video_name>_with_lips_of_<lip_landmarks_mat>.mp4")
     parser.add_argument('--generator_model_name', '-g', type=str, default=morph_video_config.generator_model, help="Path to the generator model to be used; eg.: /shared/fusor/home/voleti.vikram/DeepLearningImplementations/pix2pix/models/20180314_152941_Mahesh_Babu_black_mouth_polygons/generator_latest.h5")
@@ -519,6 +531,7 @@ if __name__ == '__main__':
         # Run
         tmp_morph_video_with_new_lip_landmarks(generator_model,
                                                args.target_video_file, args.target_audio_file, args.lip_landmarks_mat_file, args.output_video_name,
+                                               target_video_landmarks_file=args.target_video_landmarks_file,
                                                save_faces_with_black_mouth_polygons=args.save_faces_with_black_mouth_polygons,
                                                save_generated_faces=args.save_generated_faces,
                                                save_both_faces_with_bmp=args.save_both_faces_with_bmp,
