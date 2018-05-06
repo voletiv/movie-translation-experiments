@@ -1,5 +1,4 @@
 import cv2
-import dlib
 import imageio
 import matplotlib.pyplot as plt
 import numpy as np
@@ -52,6 +51,7 @@ def load_face_alignment_object(enable_cuda=False, flip_input=False, use_cnn_face
 
 
 def load_dlib_detector_predictor_facerec(config):
+    import dlib
     dlib_detector = dlib.get_frontal_face_detector()
     dlib_predictor = dlib.shape_predictor(config.SHAPE_PREDICTOR_PATH)
     dlib_facerec = dlib.face_recognition_model_v1(config.FACE_REC_MODEL_PATH)
@@ -92,6 +92,7 @@ def get_landmarks_using_FaceAlignment(frame, face_alignment_object):
 
 
 def get_landmarks_using_dlib_detector_and_predictor(frame, detector, predictor):
+    import dlib
     # Landmarks Coords: ------> x (cols)
     #                  |
     #                  |
@@ -118,6 +119,7 @@ def shape_to_landmarks(shape):
 
 
 def get_all_face_shapes(img, detector, predictor):
+    import dlib
     faces = detector(img, 1)
     face_shapes = []
     for face in faces:
@@ -391,7 +393,7 @@ def plot_2D_landmarks(image, landmarks, save_or_show='show', fig_name='a.png'):
     if save_or_show == 'show':
         plt.imshow(frame)
     elif save_or_show == 'save':
-        cv2.imwrite(fig_name, frame)
+        imageio.imwrite(fig_name, frame)
 
 
 def plot_3D_landmarks(image, landmarks, save_or_show='show', fig_name='a.png'):
