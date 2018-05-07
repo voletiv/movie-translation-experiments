@@ -77,7 +77,7 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
                          read_from_landmarks_file=True, video_landmarks_file=None, # Or, read from landmarks_file (if video_landmarks_file is not None)
                          video_file_name=None, landmarks_type='frames', video_fps=morph_video_config.ANDREW_NG_VIDEO_FPS, # Or, read from appropriate landmarks_file of video_file_name (if video_landmarks_file is None, and video_file_name is not None)
                          dataset_dir=morph_video_config.dataset_dir, person=morph_video_config.person,
-                         required_number=None, verbose=False):
+                         required_number=None, stabilize_landmarks=False, verbose=False):
     """
     Read landmarks
     1) from files with landmarks in full frames like /shared/fusor/home/voleti.vikram/ANDREW_NG/landmarks_in_frames_person/CV_01.C4W1L01_Computer_Vision_in_landmarks_frames_andrew_ng.txt,
@@ -243,7 +243,8 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
     # landmarks = medfilt(landmarks, (13, 1, 1))
 
     # Stabilize landmarks
-    landmarks = stabilize(landmarks)
+    if stabilize_landmarks:
+        landmarks = stabilize(landmarks)
 
     return landmarks, frames_with_no_landmarks
 
@@ -359,7 +360,7 @@ def transform_landmarks_by_mouth_centroid_and_scales(source_lip_landmarks, targe
 
 def tmp_morph_video_with_new_lip_landmarks(generator_model, target_video_file, target_audio_file, lip_landmarks_mat_file, output_video_name,
                                            target_video_landmarks_file=None, save_faces_with_black_mouth_polygons=False, save_generated_faces=False,
-                                           save_both_faces_with_bmp=False, save_generated_video=True, ffmpeg_overwrite=False, verbose=False):
+                                           save_both_faces_with_bmp=False, save_generated_video=True, stabilize_landmarks=False, ffmpeg_overwrite=False, verbose=False):
 
     # Read predicted lip landmarks    
     mat = loadmat(lip_landmarks_mat_file)
@@ -370,13 +371,14 @@ def tmp_morph_video_with_new_lip_landmarks(generator_model, target_video_file, t
                                        target_audio_file=target_audio_file, new_lip_landmarks=new_lip_landmarks, output_video_name=output_video_name,
                                        target_video_landmarks_file=target_video_landmarks_file,
                                        save_faces_with_black_mouth_polygons=save_faces_with_black_mouth_polygons, save_generated_faces=save_generated_faces,
-                                       save_both_faces_with_bmp=save_both_faces_with_bmp, save_generated_video=save_generated_video, ffmpeg_overwrite=ffmpeg_overwrite,
+                                       save_both_faces_with_bmp=save_both_faces_with_bmp, save_generated_video=save_generated_video,
+                                       stabilize_landmarks=stabilize_landmarks, ffmpeg_overwrite=ffmpeg_overwrite,
                                        verbose=verbose)
 
 
 def morph_video_with_new_lip_landmarks(generator_model, target_video_file, target_audio_file, new_lip_landmarks, output_video_name,
                                        target_video_landmarks_file=None, save_faces_with_black_mouth_polygons=False, save_generated_faces=False,
-                                       save_both_faces_with_bmp=False, save_generated_video=True, ffmpeg_overwrite=False, verbose=False):
+                                       save_both_faces_with_bmp=False, save_generated_video=True, stabilize_landmarks=False, ffmpeg_overwrite=False, verbose=False):
 
     # Generator model input shape
     _, generator_model_input_rows, generator_model_input_cols, _ = generator_model.layers[0].input_shape
@@ -412,7 +414,8 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
 
     # Read target_video_file's frame landmarks
     target_all_landmarks_in_frames, frames_with_no_landmarks = read_video_landmarks(video_file_name=target_video_file, read_from_landmarks_file=True, video_landmarks_file=target_video_landmarks_file,
-                                                                                    landmarks_type='frames', required_number=num_of_frames, video_fps=target_video_fps, verbose=verbose)
+                                                                                    landmarks_type='frames', required_number=num_of_frames, video_fps=target_video_fps,
+                                                                                    stabilize_landmarks=stabilize_landmarks, verbose=verbose)
 
     # Make new images of faces with black mouth polygons
     face_rect_in_frames = []
@@ -553,6 +556,7 @@ if __name__ == '__main__':
     parser.add_argument('--save_generated_faces', '-f', action="store_true")
     parser.add_argument('--save_both_faces_with_bmp', '-c', action="store_true")
     parser.add_argument('--dont_save_generated_video', '-d', action="store_true")
+    parser.add_argument('--stabilize_landmarks', '-s', action="store_true")
     parser.add_argument('--verbose', '-v', action="store_true")
     parser.add_argument('--ffmpeg_overwrite', '-y', action="store_true")
     args = parser.parse_args()
@@ -565,6 +569,9 @@ if __name__ == '__main__':
 
     # Assert args
     assert_args(args)
+
+    if args.verbose:
+        print(args)
 
     # Generator
     generator_model = utils.load_generator(args.generator_model_name, verbose=args.verbose)
@@ -579,6 +586,7 @@ if __name__ == '__main__':
                                                save_generated_faces=args.save_generated_faces,
                                                save_both_faces_with_bmp=args.save_both_faces_with_bmp,
                                                save_generated_video=args.save_generated_video,
+                                               stabilize_landmarks=args.stabilize_landmarks,
                                                ffmpeg_overwrite=args.ffmpeg_overwrite,
                                                verbose=args.verbose)
 
