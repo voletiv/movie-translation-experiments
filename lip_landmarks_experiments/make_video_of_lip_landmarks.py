@@ -47,7 +47,7 @@ def make_video_of_lip_landmarks(lip_landmarks_mat_file, video_fps=25, audio_file
         print("frames", len(frames), frames[0].shape)
         print("Saving frames as video")
 
-    utils.save_new_video_frames_with_target_audio_as_mp4(frames, video_fps, audio_file_name, output_file_name=output_file_name, ffmpeg_overwrite=ffmpeg_overwrite, verbose=verbose)
+    utils.save_new_video_frames_with_target_audio_as_mp4(frames, video_fps, audio_file_name, output_file_name=output_file_name, overwrite=ffmpeg_overwrite, verbose=verbose)
 
 
 if __name__ == '__main__':
