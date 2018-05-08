@@ -7,11 +7,15 @@ warnings.filterwarnings("ignore")
 
 config = MovieTranslationConfig()
 
+import sys
+sys.path.append('../')
+import utils
+
 # Load landmarks detector
 if config.USING_DLIB_OR_FACE_ALIGNMENT == 'dlib':
-    dlib_detector, dlib_predictor = load_dlib_detector_and_predictor()
+    dlib_detector, dlib_predictor = utils.`load_dlib_detector_and_predictor()
 elif config.USING_DLIB_OR_FACE_ALIGNMENT == 'face_alignment':
-    face_alignment_object = load_face_alignment_object(enable_cuda=config.ENABLE_CUDA)
+    face_alignment_object = utils.load_face_alignment_object(enable_cuda=config.ENABLE_CUDA)
 
 # Clip videos by dialogue times from metadata,
 # extract faces and landmarks from video clips,
