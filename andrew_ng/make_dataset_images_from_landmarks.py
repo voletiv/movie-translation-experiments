@@ -16,11 +16,11 @@ def make_combined_face_with_bmp(video_file_name, output_dir_name, align=False):
     # Read video
     video_reader = imageio.get_reader(video_file_name)
     frames = []
-    for frame in video_reader:
-        frames.append(a)
+    for frame in tqdm.tqdm(video_reader):
+        frames.append(frame)
 
     if os.path.basename(video_file_name)[2] == '.':
-        video_file_name = "CV_" + '_'.join('_'.join(os.path.basename(video_file_name).split('.')).split(' '))
+        video_file_name = "CV_" + '_'.join('_'.join(os.path.splitext(os.path.basename(video_file_name))[0].split('.')).split(' '))
 
     # Read landmarks
     landmarks, frames_with_no_landmarks = read_video_landmarks(video_file_name=video_file_name)
@@ -39,9 +39,9 @@ def make_combined_face_with_bmp(video_file_name, output_dir_name, align=False):
                                                                                                                   face_square_expanded_resized=True)
             # Make black mouth and lips polygons
             mouth_landmarks_in_face = landmarks_in_face_square_expanded_resized[48:68]
-            face_square_expanded_resized_with_bmp = make_black_mouth_and_lips_polygons(face_square_expanded_resized,
-                                                                                       mouth_landmarks_in_face,
-                                                                                       align=align)
+            face_square_expanded_resized_with_bmp = utils.make_black_mouth_and_lips_polygons(face_square_expanded_resized,
+                                                                                             mouth_landmarks_in_face,
+                                                                                             align=align)
 
             # Make combined face
             face_combined = np.hstack((face_square_expanded_resized, face_square_expanded_resized_with_bmp))
@@ -49,16 +49,20 @@ def make_combined_face_with_bmp(video_file_name, output_dir_name, align=False):
             # Save combined face
             video_base_name = os.path.splitext(os.path.basename(video_file_name))[0]
             image_name = os.path.join(output_dir_name, video_base_name, video_base_name + "_combined_faces_frame_{0:05d}.png".format(i))
+            if not os.path.exists(os.path.dirname(image_name)):
+                os.makedirs(os.path.dirname(image_name))
             imageio.imwrite(image_name, face_combined)
 
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='make_combined_face_with_bmp')
-    parser.add_argument('video_file_name, , ', type=str, help="target video (.mp4); eg. /home/voleti.vikram/ANDREW_NG/videos/CV_01_C4W1L01_000003_to_000045/CV_01_C4W1L01_000003_to_000045.mp4")
-    parser.add_argument('output_dir_name', '-a', type=str, default=None, help="output_dir_name; eg. /home/voleti.vikram/ANDREW_NG/faces_combined_new/")
+    parser.add_argument('video_file_name', type=str, help="target video (.mp4); eg. /home/voleti.vikram/ANDREW_NG/videos/CV_01_C4W1L01_000003_to_000045/CV_01_C4W1L01_000003_to_000045.mp4")
+    parser.add_argument('--output_dir_name', '-o', type=str, help="output_dir_name; eg. /home/voleti.vikram/ANDREW_NG/faces_combined_new/")
     parser.add_argument('--align', '-a', action="store_true")
     
     args = parser.parse_args()
+
+    print(args)
 
     make_combined_face_with_bmp(args.video_file_name, args.output_dir_name, args.align)

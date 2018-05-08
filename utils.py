@@ -228,12 +228,12 @@ def make_black_mouth_and_lips_polygons(frame, mouth_landmarks, align=False):
 #         mouth_rect_expanded = expand_rect(mouth_rect, scale_w=1.2, scale_h=1.8, frame_shape=(frame.shape[0], frame.shape[1]))
 
         # Get mouth landmarks centroid
-        mouth_centroid = np.mean(mouth_landmarks, axis=0)
+        mouth_centroid = np.mean(mouth_landmarks, axis=0).astype(int)
 
-        # Make mouth_rect as 1/2 face_width and 1/4th face_height
+        # Make mouth_rect as 1/3rd face_width and 1/3rd face_height
         height, width = frame.shape[0], frame.shape[1]
-        mouth_rect_expanded = [mouth_centroid[1] - width//4, mouth_centroid[0] - height//8,
-                               mouth_centroid[1] + width//4, mouth_centroid[0] + height//8]
+        mouth_rect_expanded = [int(mouth_centroid[0] - width/3/2), int(mouth_centroid[1] - height/3/2),
+                               int(mouth_centroid[0] + width/3/2), int(mouth_centroid[1] + height/3/2)]
 
         # Make new frame for blackened mouth and lip polygons
         frame_with_blackened_mouth_and_lip_polygons = np.array(frame)
