@@ -16,9 +16,29 @@ from skimage.transform import resize
 
 import morph_video_config
 
+from vad import VoiceActivityDetector
+
 ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '../'))
 sys.path.append(ROOT_DIR)
 import utils
+
+
+def get_closed_lip_cluster_center():
+    lip_clusters = np.load(morph_video_config.LIP_CLUSTERS_FILE)
+    return lip_clusters[morph_video_config.CLOSED_LIP_CLUSTER_INDEX].reshape(2, 20).transpose(1, 0)
+
+
+def detect_no_voice_activity(audio_file, voice_activity_threshold, video_fps):
+    if os.path.splitext(audio_file)[-1] != '.wav':
+        ret = subprocess.call(['ffmpeg', '-loglevel', 'error', '-i', audio_file, '-vn', '-y', '-codec:a', 'pcm_s16le', '-ar', '16000', '-ac', '1', '-f', 'wav', '%s.wav' % audio_file])
+        audio_file = '%s.wav' % audio_file
+    v = VoiceActivityDetector(audio_file, voice_activity_threshold)
+    speech_detection = v.detect_speech()[:, 1]
+    x = np.arange(0, len(speech_detection)*0.01, 0.01)
+    f = interpolate.interp1d(x, speech_detection)
+    xnew = np.arange(0, len(speech_detection)*0.01, 1/video_fps)
+    ynew = np.round(f(xnew)).astype(int)
+    return 1 - ynew
 
 
 def interpolate_landmarks_to_new_fps(landmarks_in_frames, video_fps_old, video_fps_new):
@@ -359,8 +379,9 @@ def transform_landmarks_by_mouth_centroid_and_scales(source_lip_landmarks, targe
 
 
 def tmp_morph_video_with_new_lip_landmarks(generator_model, target_video_file, target_audio_file, lip_landmarks_mat_file, output_video_name,
-                                           target_video_landmarks_file=None, save_faces_with_black_mouth_polygons=False, save_generated_faces=False,
-                                           save_both_faces_with_bmp=False, save_generated_video=True, stabilize_landmarks=False, ffmpeg_overwrite=False, verbose=False):
+                                           target_video_landmarks_file=None, save_making=True, save_generated_video=True, stabilize_landmarks=False,
+                                           replace_closed_mouth=False, voice_activity_threshold=0.6,
+                                           ffmpeg_overwrite=False, verbose=False):
 
     # Read predicted lip landmarks    
     mat = loadmat(lip_landmarks_mat_file)
@@ -369,16 +390,16 @@ def tmp_morph_video_with_new_lip_landmarks(generator_model, target_video_file, t
     # Call the actual function
     morph_video_with_new_lip_landmarks(generator_model=generator_model, target_video_file=target_video_file,
                                        target_audio_file=target_audio_file, new_lip_landmarks=new_lip_landmarks, output_video_name=output_video_name,
-                                       target_video_landmarks_file=target_video_landmarks_file,
-                                       save_faces_with_black_mouth_polygons=save_faces_with_black_mouth_polygons, save_generated_faces=save_generated_faces,
-                                       save_both_faces_with_bmp=save_both_faces_with_bmp, save_generated_video=save_generated_video,
-                                       stabilize_landmarks=stabilize_landmarks, ffmpeg_overwrite=ffmpeg_overwrite,
-                                       verbose=verbose)
+                                       target_video_landmarks_file=target_video_landmarks_file, save_making=save_making,
+                                       save_generated_video=save_generated_video, stabilize_landmarks=stabilize_landmarks,
+                                       replace_closed_mouth=replace_closed_mouth, voice_activity_threshold=voice_activity_threshold,
+                                       ffmpeg_overwrite=ffmpeg_overwrite, verbose=verbose)
 
 
 def morph_video_with_new_lip_landmarks(generator_model, target_video_file, target_audio_file, new_lip_landmarks, output_video_name,
-                                       target_video_landmarks_file=None, save_faces_with_black_mouth_polygons=False, save_generated_faces=False,
-                                       save_both_faces_with_bmp=False, save_generated_video=True, stabilize_landmarks=False, ffmpeg_overwrite=False, verbose=False):
+                                       target_video_landmarks_file=None, save_making=True, save_generated_video=True, stabilize_landmarks=False,
+                                       replace_closed_mouth=False, voice_activity_threshold=0.6,
+                                       ffmpeg_overwrite=False, verbose=False):
 
     # Generator model input shape
     _, generator_model_input_rows, generator_model_input_cols, _ = generator_model.layers[0].input_shape
@@ -401,6 +422,18 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
     if verbose:
         print("Number of frames:", num_of_frames)
 
+    # Make lip closures when no speech
+    if replace_closed_mouth:
+        if verbose:
+            print("Replacing closed mouth with cluster center")
+        if target_audio_file is None:
+            print("ERROR: target_audio_file is None! Not replacing closed mouth with cluster center.")
+        else:
+            lip_landmarks_to_replace = detect_no_voice_activity(target_audio_file, voice_activity_threshold, target_video_fps)
+            print(lip_landmarks_to_replace)
+            closed_lip_landmarks = get_closed_lip_cluster_center()
+            source_lip_landmarks[lip_landmarks_to_replace] = closed_lip_landmarks
+
     # Read as many target video frames as source landmarks
     target_video_frames = []
 
@@ -420,9 +453,18 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
     # Make new images of faces with black mouth polygons
     face_rect_in_frames = []
     face_original_sizes = []
-    both_faces_with_bmp = []
+    faces_original = []
     faces_with_black_mouth_polygons = []
+    making_frames = []
     M = np.zeros((2, 3))
+
+    """
+    target_video_frames = np.array([target_video_frames[93]] * len(target_video_frames))
+    target_all_landmarks_in_frames[:] = target_all_landmarks_in_frames[93]
+    # """
+    closed_lip_landmarks = get_closed_lip_cluster_center()
+    source_lip_landmarks[:] = closed_lip_landmarks
+    # """
 
     if verbose:
         print("Making new images of faces with black mouth polygons...")
@@ -442,6 +484,7 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
                                                                                                               face_square_expanded_resized=True)
 
         # Note face rect in frame, face original size
+        faces_original.append(face_square_expanded_resized)
         face_rect_in_frames.append(face_rect_in_frame)
         face_original_sizes.append(face_original_size)
 
@@ -452,27 +495,13 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
         # target_lip_landmarks_tx_from_source = transform_landmarks_by_upper_lips(source_lip_landmarks_in_frame, target_lip_landmarks_in_frame)
 
         # Make face with black mouth polygon
-        if use_original_frame:
-            face_with_bmp = face_square_expanded_resized
-        else:
-            face_with_bmp = utils.make_black_mouth_and_lips_polygons(face_square_expanded_resized, target_lip_landmarks_tx_from_source)
+        face_with_bmp = utils.make_black_mouth_and_lips_polygons(face_square_expanded_resized, target_lip_landmarks_tx_from_source)
         faces_with_black_mouth_polygons.append(face_with_bmp)
-        if save_both_faces_with_bmp:
+        if save_making:
             face_with_original_bmp = utils.make_black_mouth_and_lips_polygons(face_square_expanded_resized, landmarks_in_face_square_expanded_resized[48:68])
-            both_face_with_bmp = np.hstack((face_square_expanded_resized, face_with_original_bmp, face_with_bmp))
-            both_faces_with_bmp.append(both_face_with_bmp)
-
-    if save_faces_with_black_mouth_polygons:
-        faces_with_bmp_output_video_name = os.path.splitext(output_video_name)[0] + '_faces_with_bmp.mp4'
-        print("Saving faces with black mouth polygons as", faces_with_bmp_output_video_name)
-        utils.save_new_video_frames_with_target_audio_as_mp4(faces_with_black_mouth_polygons, target_video_fps, target_audio_file,
-                                                             output_file_name=faces_with_bmp_output_video_name, overwrite=ffmpeg_overwrite, verbose=verbose)
-
-    if save_both_faces_with_bmp:
-        both_faces_with_bmp_output_video_name = os.path.splitext(output_video_name)[0] + '_both_faces_with_bmp.mp4'
-        print("Saving both faces with black mouth polygons as", both_faces_with_bmp_output_video_name)
-        utils.save_new_video_frames_with_target_audio_as_mp4(both_faces_with_bmp, target_video_fps, target_audio_file,
-                                                             output_file_name=both_faces_with_bmp_output_video_name, overwrite=ffmpeg_overwrite, verbose=verbose)
+            making_frame = np.hstack((face_square_expanded_resized, face_with_original_bmp))
+            making_frame = np.vstack(( making_frame, np.hstack((np.zeros(face_with_bmp.shape), face_with_bmp)) ))
+            making_frames.append(making_frame)
 
     if save_generated_video:
 
@@ -482,40 +511,55 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
 
         # Predict in batches
         new_faces = []
+        gen_input_faces = []
         batch_size = 8
         num_of_batches = int(np.ceil(len(faces_with_black_mouth_polygons)/batch_size))
         for batch in range(num_of_batches):
             faces_with_bmp_batch = faces_with_black_mouth_polygons[batch*batch_size:(batch+1)*batch_size]
+            for face in faces_with_bmp_batch:
+                gen_input_faces.append(face)
             new_faces_batch = utils.unnormalize_output_from_generator(generator_model.predict(utils.normalize_input_to_generator(faces_with_bmp_batch)))
             for new_face in new_faces_batch:
                 new_faces.append(new_face)
 
-        if save_generated_faces:
-            faces_output_video_name = os.path.splitext(output_video_name)[0] + '_faces.mp4'
-            print("Saving new faces as", faces_output_video_name)
-            for i in range(len(new_faces)):
+        print("Saving input faces as", os.path.splitext(output_video_name)[0]+"_input_faces.mp4")
+        utils.save_new_video_frames_with_target_audio_as_mp4(gen_input_faces, target_video_fps, target_audio_file,
+                                                             output_file_name=os.path.splitext(output_video_name)[0]+"_input_faces.mp4",
+                                                             overwrite=ffmpeg_overwrite, verbose=verbose)
+
+        if save_making:
+            for i in range(len(making_frames)):
                 if frames_with_no_landmarks[i]:
-                    new_faces[i] = both_faces_with_bmp[i][:, :generator_model_input_cols]
-            utils.save_new_video_frames_with_target_audio_as_mp4(new_faces, target_video_fps, target_audio_file,
-                                                                 output_file_name=faces_output_video_name,
-                                                                 overwrite=ffmpeg_overwrite, verbose=verbose)
+                    making_frames[i][-generator_model_input_rows:, :generator_model_input_cols] = faces_original[i]
+                else:
+                    making_frames[i][-generator_model_input_rows:, :generator_model_input_cols] = new_faces[i]
    
         # Reintegrate generated faces into frames
         if verbose:
             print("Reintegrating generated faces into frames...")
 
         new_frames = list(target_video_frames)
-        for (new_frame, new_face, face_original_size, face_rect_in_frame, use_original_frame) in tqdm.tqdm(zip(new_frames, new_faces, face_original_sizes, face_rect_in_frames, frames_with_no_landmarks),
+        for i, (new_frame, new_face, face_original_size, face_rect_in_frame, use_original_frame) in tqdm.tqdm(enumerate(zip(new_frames, new_faces, face_original_sizes, face_rect_in_frames, frames_with_no_landmarks)),
                                                                                                            total=num_of_frames):
             if not use_original_frame:
                 new_face_resized = np.round(resize(new_face, face_original_size, mode='reflect', preserve_range=True)).astype('uint8')
                 new_frame[face_rect_in_frame[1]:face_rect_in_frame[3], face_rect_in_frame[0]:face_rect_in_frame[2]] = new_face_resized
+            else:
+                if verbose:
+                    print("Copying original frame", i)
 
         # Write new video
         print("Saving new frames as", output_video_name)
         utils.save_new_video_frames_with_target_audio_as_mp4(new_frames, target_video_fps, target_audio_file,
                                                              output_file_name=output_video_name,
                                                              overwrite=ffmpeg_overwrite, verbose=verbose)
+
+    if save_making:
+        print("Saving making video as", os.path.splitext(output_video_name)[0] + '_making.mp4')
+        utils.save_new_video_frames_with_target_audio_as_mp4(np.round(making_frames).astype('uint8'), target_video_fps, target_audio_file,
+                                                             output_file_name=os.path.splitext(output_video_name)[0] + '_making.mp4',
+                                                             overwrite=ffmpeg_overwrite, verbose=verbose)
+
 
 
 def assert_args(args):
@@ -552,11 +596,11 @@ if __name__ == '__main__':
     parser.add_argument('--lip_landmarks_mat_file', '-l',type=str, help="Predicted and target lip landmarks; eg. /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/generated_hindi_landmarks/output5/generated_lip_landmarks.mat")
     parser.add_argument('--output_video_name', '-o', type=str, default=None, help="Name of output video; def: <input_video_name>_with_lips_of_<lip_landmarks_mat>.mp4")
     parser.add_argument('--generator_model_name', '-g', type=str, default=morph_video_config.generator_model, help="Path to the generator model to be used; eg.: /shared/fusor/home/voleti.vikram/DeepLearningImplementations/pix2pix/models/20180314_152941_Mahesh_Babu_black_mouth_polygons/generator_latest.h5")
-    parser.add_argument('--save_faces_with_black_mouth_polygons', '-b', action="store_true")
-    parser.add_argument('--save_generated_faces', '-f', action="store_true")
-    parser.add_argument('--save_both_faces_with_bmp', '-c', action="store_true")
+    parser.add_argument('--save_making', '-m', action="store_true")
     parser.add_argument('--dont_save_generated_video', '-d', action="store_true")
     parser.add_argument('--stabilize_landmarks', '-s', action="store_true")
+    parser.add_argument('--replace_closed_mouth', '-r', action="store_true")
+    parser.add_argument('--voice_activity_threshold', '-vadthresh', type=float, default=0.6, help="threshold [0 - 1] for voice activity detection; energy > thresh => voice")
     parser.add_argument('--verbose', '-v', action="store_true")
     parser.add_argument('--ffmpeg_overwrite', '-y', action="store_true")
     args = parser.parse_args()
@@ -565,7 +609,7 @@ if __name__ == '__main__':
 
     # EXAMPLE: python /shared/fusor/home/voleti.vikram/movie-translation-experiments/andrew_ng/morph_video_with_new_lip_landmarks.py /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/CV_01_C4W1L01_000003_to_000045/CV_01_C4W1L01_000003_to_000045.mp4 -a /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/genhindi_erated_landmarks/test_wav/CV_05_C4W1L05_000001_to_000011.wav -l /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/genhindi_erated_landmarks/CV_05_C4W1L05_000001_to_000011_generated_lip_landmarks.mat -o /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/visdub_hindi/CV_05_C4W1L05_000001_to_000011_with_generated_lip_landmarks_upper_lip.mp4 -v
 
-    # EXAMPLE: python /home/voleti.vikram/movie-translation-experiments/andrew_ng/morph_video_with_new_lip_landmarks.py /home/voleti.vikram/ANDREW_NG/ABHISHEK/videos/CV_01_C4W1L01_000003_to_000045/CV_01_C4W1L01_000003_to_000045.mp4 -t /home/voleti.vikram/ANDREW_NG_CLIPS/landmarks_in_frames_person/CV_01_C4W1L01_000003_to_000045_CV_01_C4W1L01_000003_to_000045_landmarks_in_frames_andrew_ng.txt -a /home/voleti.vikram/ANDREW_NG/ABHISHEK/videos/CV_01_C4W1L01_000003_to_000045/CV_01_C4W1L01_000003_to_000045_hindi_abhishek.wav -l /home/voleti.vikram/ANDREW_NG/ABHISHEK/videos/CV_01_C4W1L01_000003_to_000045/CV_01_C4W1L01_000003_to_000045_hindi_abhishek_generated_lip_landmarks.mat -o /home/voleti.vikram/ANDREW_NG/ABHISHEK/videos/CV_01_C4W1L01_000003_to_000045/CV_01_C4W1L01_000003_to_000045_hindi_abhishek.mp4 -b -v -y
+    # EXAMPLE: python /home/voleti.vikram/movie-translation-experiments/andrew_ng/morph_video_with_new_lip_landmarks.py /home/voleti.vikram/ANDREW_NG/ABHISHEK/videos/CV_01_C4W1L01_000003_to_000045/CV_01_C4W1L01_000003_to_000045.mp4 -t /home/voleti.vikram/ANDREW_NG_CLIPS/landmarks_in_frames_person/CV_01_C4W1L01_000003_to_000045_CV_01_C4W1L01_000003_to_000045_landmarks_in_frames_andrew_ng.txt -a /home/voleti.vikram/ANDREW_NG/ABHISHEK/videos/CV_01_C4W1L01_000003_to_000045/CV_01_C4W1L01_000003_to_000045_hindi_abhishek.wav -l /home/voleti.vikram/ANDREW_NG/ABHISHEK/videos/CV_01_C4W1L01_000003_to_000045/CV_01_C4W1L01_000003_to_000045_hindi_abhishek_generated_lip_landmarks.mat -o /home/voleti.vikram/ANDREW_NG/ABHISHEK/videos/CV_01_C4W1L01_000003_to_000045/CV_01_C4W1L01_000003_to_000045_hindi_abhishek.mp4 -r -m -v -y
 
     # Assert args
     assert_args(args)
@@ -582,11 +626,11 @@ if __name__ == '__main__':
         tmp_morph_video_with_new_lip_landmarks(generator_model,
                                                args.target_video_file, args.target_audio_file, args.lip_landmarks_mat_file, args.output_video_name,
                                                target_video_landmarks_file=args.target_video_landmarks_file,
-                                               save_faces_with_black_mouth_polygons=args.save_faces_with_black_mouth_polygons,
-                                               save_generated_faces=args.save_generated_faces,
-                                               save_both_faces_with_bmp=args.save_both_faces_with_bmp,
+                                               save_making=args.save_making,
                                                save_generated_video=args.save_generated_video,
                                                stabilize_landmarks=args.stabilize_landmarks,
+                                               replace_closed_mouth=args.replace_closed_mouth,
+                                               voice_activity_threshold=args.voice_activity_threshold,
                                                ffmpeg_overwrite=args.ffmpeg_overwrite,
                                                verbose=args.verbose)
 
