@@ -210,7 +210,7 @@ def align_lm(lm):
     return rot_lm
 
 
-def make_black_mouth_and_lips_polygons(frame, mouth_landmarks):
+def make_black_mouth_and_lips_polygons(frame, mouth_landmarks, align=False):
 
 #         # Find mouth bounding box
 #         mouth_rect = [int(np.min(mouth_landmarks[:, 0])), int(np.min(mouth_landmarks[:, 1])), int(np.max(mouth_landmarks[:, 0])), int(np.max(mouth_landmarks[:, 1]))]
@@ -234,11 +234,12 @@ def make_black_mouth_and_lips_polygons(frame, mouth_landmarks):
                                                     mouth_rect_expanded[0]:mouth_rect_expanded[2]] = 0
 
         # Align lip landmarks
-        aligned_mouth_landmarks = align_lm(mouth_landmarks)
+        if align:
+            mouth_landmarks = align_lm(mouth_landmarks)
         
         # Draw lips polygon in frame
         frame_with_blackened_mouth_and_lip_polygons = cv2.drawContours(frame_with_blackened_mouth_and_lip_polygons,
-                                                                       [aligned_mouth_landmarks[:12], aligned_mouth_landmarks[12:]], -1, (255, 255, 255))
+                                                                       [mouth_landmarks[:12], mouth_landmarks[12:]], -1, (255, 255, 255))
 
         return frame_with_blackened_mouth_and_lip_polygons
 
