@@ -20,7 +20,16 @@ def load_generator(model_path, verbose=False):
     from keras.models import load_model
     if verbose:
         print("Loading model", model_path, "...")
-    return load_model(model_path)
+
+    try:
+        model = load_model(model_path)
+    except:
+        print("Loading", '/'.join(os.path.splitext(model_path)[0].split('/')[:-1] + ['generator_latest.h5']), "instead...")
+        latest_model = '/'.join(os.path.splitext(model_path)[0].split('/')[:-1] + ['generator_latest.h5'])
+        model = load_model(latest_model)
+        model.load_weights(model_path)
+
+    return model
 
 
 def load_dlib_detector_and_predictor(verbose=False):
@@ -195,13 +204,36 @@ def get_square_expand_resize_face_and_modify_landmarks(frame, landmarks, resize_
     return face_square_expanded_resized, landmarks_in_face_square_expanded_resized, face_rect_square_expanded, face_original_size
 
 
-def make_black_mouth_and_lips_polygons(frame, mouth_landmarks):
+def align_and_normalize_lm(lm):
+    angle = np.arctan((lm[1, 6] - lm[1, 0])/(lm[0, 6] - lm[0, 0] + 1e-8))
+    rot_lm = np.dot([[np.cos(angle), np.sin(angle)], [-np.sin(angle), np.cos(angle)]], lm)
+    aligned_lm = (rot_lm - rot_lm[:, 0].reshape(2, 1)) / (np.max(rot_lm[0]) - np.min(rot_lm[0]) + 1e-8) * 2 - np.array([[1], [0]])
+    aligned_lm[aligned_lm > 1.] = 1.
+    aligned_lm[aligned_lm < -1.] = -1.
+    return aligned_lm
 
-        # Find mouth bounding box
-        mouth_rect = [int(np.min(mouth_landmarks[:, 0])), int(np.min(mouth_landmarks[:, 1])), int(np.max(mouth_landmarks[:, 0])), int(np.max(mouth_landmarks[:, 1]))]
 
-        # Expand mouth bounding box
-        mouth_rect_expanded = expand_rect(mouth_rect, scale_w=1.2, scale_h=1.8, frame_shape=(frame.shape[0], frame.shape[1]))
+def align_lm(lm):
+    angle = np.arctan((lm[1, 6] - lm[1, 0])/(lm[0, 6] - lm[0, 0] + 1e-8))
+    rot_lm = np.dot([[np.cos(angle), np.sin(angle)], [-np.sin(angle), np.cos(angle)]], lm)
+    return rot_lm
+
+
+def make_black_mouth_and_lips_polygons(frame, mouth_landmarks, align=False):
+
+#         # Find mouth bounding box
+#         mouth_rect = [int(np.min(mouth_landmarks[:, 0])), int(np.min(mouth_landmarks[:, 1])), int(np.max(mouth_landmarks[:, 0])), int(np.max(mouth_landmarks[:, 1]))]
+
+#         # Expand mouth bounding box
+#         mouth_rect_expanded = expand_rect(mouth_rect, scale_w=1.2, scale_h=1.8, frame_shape=(frame.shape[0], frame.shape[1]))
+
+        # Get mouth landmarks centroid
+        mouth_centroid = np.mean(mouth_landmarks, axis=0)
+
+        # Make mouth_rect as 1/2 face_width and 1/4th face_height
+        height, width = frame.shape[0], frame.shape[1]
+        mouth_rect_expanded = [mouth_centroid[1] - width//4, mouth_centroid[0] - height//8,
+                               mouth_centroid[1] + width//4, mouth_centroid[0] + height//8]
 
         # Make new frame for blackened mouth and lip polygons
         frame_with_blackened_mouth_and_lip_polygons = np.array(frame)
@@ -210,6 +242,10 @@ def make_black_mouth_and_lips_polygons(frame, mouth_landmarks):
         frame_with_blackened_mouth_and_lip_polygons[mouth_rect_expanded[1]:mouth_rect_expanded[3],
                                                     mouth_rect_expanded[0]:mouth_rect_expanded[2]] = 0
 
+        # Align lip landmarks
+        if align:
+            mouth_landmarks = align_lm(mouth_landmarks)
+        
         # Draw lips polygon in frame
         frame_with_blackened_mouth_and_lip_polygons = cv2.drawContours(frame_with_blackened_mouth_and_lip_polygons,
                                                                        [mouth_landmarks[:12], mouth_landmarks[12:]], -1, (255, 255, 255))
