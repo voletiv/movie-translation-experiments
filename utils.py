@@ -20,7 +20,16 @@ def load_generator(model_path, verbose=False):
     from keras.models import load_model
     if verbose:
         print("Loading model", model_path, "...")
-    return load_model(model_path)
+
+    try:
+        model = load_model(model_path)
+    except:
+        print("Loading", '/'.join(os.path.splitext(model_path)[0].split('/')[:-1] + ['generator_latest.h5']), "instead...")
+        latest_model = '/'.join(os.path.splitext(model_path)[0].split('/')[:-1] + ['generator_latest.h5'])
+        model = load_model(latest_model)
+        model.load_weights(model_path)
+
+    return model
 
 
 def load_dlib_detector_and_predictor(verbose=False):
