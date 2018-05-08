@@ -19,6 +19,9 @@ def make_combined_face_with_bmp(video_file_name, output_dir_name, align=False):
     for frame in video_reader:
         frames.append(a)
 
+    if os.path.basename(video_file_name)[2] == '.':
+        video_file_name = "CV_" + '_'.join('_'.join(os.path.basename(video_file_name).split('.')).split(' '))
+
     # Read landmarks
     landmarks, frames_with_no_landmarks = read_video_landmarks(video_file_name=video_file_name)
 
