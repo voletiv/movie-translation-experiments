@@ -360,8 +360,8 @@ def transform_landmarks_by_mouth_centroid_and_scales(source_lip_landmarks, targe
     mouth_centroid_target = (ml_target + mr_target + mt_target + mb_target)/4
 
     # Centre both mouths
-    mouth_centred_source = source_landmarks - mouth_centroid_source
-    mouth_centred_target = target_landmarks - mouth_centroid_target
+    mouth_centred_source = source_lip_landmarks - mouth_centroid_source
+    mouth_centred_target = target_lip_landmarks - mouth_centroid_target
 
     # Calculate scales
     scale_x = (mr_target - ml_target)[0]/(mr_source - ml_source)[0]
@@ -461,7 +461,6 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
     """
     target_video_frames = np.array([target_video_frames[93]] * len(target_video_frames))
     target_all_landmarks_in_frames[:] = target_all_landmarks_in_frames[93]
-    # """
     closed_lip_landmarks = get_closed_lip_cluster_center()
     source_lip_landmarks[:] = closed_lip_landmarks
     # """
@@ -490,8 +489,8 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
 
         # Tx source lip landmarks to good target video position, etc.
         target_lip_landmarks_in_frame = np.array(landmarks_in_face_square_expanded_resized[48:68])
-        target_lip_landmarks_tx_from_source, M = affine_transform_landmarks(source_lip_landmarks_in_frame, target_lip_landmarks_in_frame, fullAffine=True, prev_M=M)
-        # target_lip_landmarks_tx_from_source = transform_landmarks_by_mouth_centroid_and_scales(source_lip_landmarks_in_frame, target_lip_landmarks_in_frame)
+        # target_lip_landmarks_tx_from_source, M = affine_transform_landmarks(source_lip_landmarks_in_frame, target_lip_landmarks_in_frame, fullAffine=True, prev_M=M)
+        target_lip_landmarks_tx_from_source = transform_landmarks_by_mouth_centroid_and_scales(source_lip_landmarks_in_frame, target_lip_landmarks_in_frame)
         # target_lip_landmarks_tx_from_source = transform_landmarks_by_upper_lips(source_lip_landmarks_in_frame, target_lip_landmarks_in_frame)
 
         # Make face with black mouth polygon
@@ -529,10 +528,10 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
 
         if save_making:
             for i in range(len(making_frames)):
-                if frames_with_no_landmarks[i]:
-                    making_frames[i][-generator_model_input_rows:, :generator_model_input_cols] = faces_original[i]
-                else:
-                    making_frames[i][-generator_model_input_rows:, :generator_model_input_cols] = new_faces[i]
+                # if frames_with_no_landmarks[i]:
+                making_frames[i][-generator_model_input_rows:, :generator_model_input_cols] = faces_original[i]
+                # else:
+                #     making_frames[i][-generator_model_input_rows:, :generator_model_input_cols] = new_faces[i]
    
         # Reintegrate generated faces into frames
         if verbose:
@@ -556,7 +555,10 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
 
     if save_making:
         print("Saving making video as", os.path.splitext(output_video_name)[0] + '_making.mp4')
-        utils.save_new_video_frames_with_target_audio_as_mp4(np.round(making_frames).astype('uint8'), target_video_fps, target_audio_file,
+        resized_making_frames = []
+        for frame in making_frames:
+            resized_making_frames.append(np.round(resize(frame, (256, 256), mode='reflect', preserve_range=True)).astype('uint8'))
+        utils.save_new_video_frames_with_target_audio_as_mp4(np.round(resized_making_frames).astype('uint8'), target_video_fps, target_audio_file,
                                                              output_file_name=os.path.splitext(output_video_name)[0] + '_making.mp4',
                                                              overwrite=ffmpeg_overwrite, verbose=verbose)
 
