@@ -49,11 +49,13 @@ def extract_video_clips(language, actor, metadata, youtube_videos_dir=os.path.jo
 
 
 def extract_face_frames_and_landmarks_from_video(video_file, using_dlib_or_face_alignment,
-                                                 dlib_detector=None, dlib_predictor=None, face_alignment_object=None,
-                                                 crop_expanded_face_square=True,
+                                                 dlib_detector=None, dlib_predictor=None,
+                                                 face_alignment_3D_object=None, face_alignment_2D_object=None,
+                                                 crop_expanded_face_square=True, resize_to_shape=(256, 256),
                                                  save_with_blackened_mouths_and_polygons=True,
-                                                 save_gif=False,
                                                  save_landmarks_as_txt=True, save_landmarks_as_csv=False,
+                                                 skip_frames=0, check_for_face_every_nth_frame=10,
+                                                 output_dir=config.MOVIE_TRANSLATION_DATASET_DIR,
                                                  verbose=False):
     '''
     Extract face frames using landmarks, and save in MOVIE_TRANSLATION_DATASET_DIR/frames/language/actor/video_file
@@ -72,169 +74,263 @@ def extract_face_frames_and_landmarks_from_video(video_file, using_dlib_or_face_
             return
 
     elif using_dlib_or_face_alignment == 'face_alignment':
-        if face_alignment_object is None:
+        if face_alignment_3D_object is None or face_alignment_2D_object is None:
             print("\n\n[ERROR] Please provide face_alignment_object! (Since you have chosen the option of 'face_alignment' in 'using_dlib_or_face_alignment')\n\n")
             return
 
     video_file_split = video_file.split("/")
-    video_file_name = os.path.splitext(video_file_split[-1])[0]
     actor = video_file_split[-2]
     language = video_file_split[-3]
-    video_frames_dir = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, "frames", language, actor, video_file_name)
+    video_file_name = os.path.splitext('_'.join(video_file_split[video_file_split.index(actor):]))[0].replace(" ", "_")
+    video_frames_dir = os.path.join(output_dir, "frames", language, actor, video_file_name)
 
     # Make video_frames_dir
     if not os.path.exists(video_frames_dir):
         os.makedirs(video_frames_dir)
 
-    # Make video_frames_combined_dir
+    # Make video_faces_combined_dir
     if save_with_blackened_mouths_and_polygons:
-        video_frames_combined_dir = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, "frames_combined", language, actor, video_file_name)
-        if not os.path.exists(video_frames_combined_dir):
-            os.makedirs(video_frames_combined_dir)
+        video_faces_combined_dir = os.path.join(output_dir, "faces_combined", language, actor, video_file_name)
+        if not os.path.exists(video_faces_combined_dir):
+            os.makedirs(video_faces_combined_dir)
+        video_faces_combined_3D_dir = os.path.join(output_dir, "faces_combined_using_3D_landmarks", language, actor, video_file_name)
+        if not os.path.exists(video_faces_combined_3D_dir):
+            os.makedirs(video_faces_combined_3D_dir)
+        video_faces_combined_2D_dir = os.path.join(output_dir, "faces_combined_using_2D_landmarks", language, actor, video_file_name)
+        if not os.path.exists(video_faces_combined_2D_dir):
+            os.makedirs(video_faces_combined_2D_dir)
 
-    # Make landmarks_dir
+    # Make landmarks_in_frames dir
     if save_landmarks_as_txt or save_landmarks_as_csv:
-        landmarks_dir = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, "landmarks", language, actor)
-        if not os.path.exists(landmarks_dir):
-            os.makedirs(landmarks_dir)
+        if using_dlib_or_face_alignment == 'dlib':
+            landmarks_in_frames_dir = os.path.join(output_dir, "landmarks_in_frames", language, actor)
+            if not os.path.exists(landmarks_in_frames_dir):
+                os.makedirs(landmarks_in_frames_dir)
+            landmarks_3D_in_frames_dir = None
+            landmarks_2D_in_frames_dir = None
+        elif using_dlib_or_face_alignment == 'face_alignment':
+            landmarks_in_frames_dir = None
+            landmarks_3D_in_frames_dir = os.path.join(output_dir, "landmarks_3D_in_frames", language, actor)
+            if not os.path.exists(landmarks_3D_in_frames_dir):
+                os.makedirs(landmarks_3D_in_frames_dir)
+            landmarks_2D_in_frames_dir = os.path.join(output_dir, "landmarks_2D_in_frames", language, actor)
+            if not os.path.exists(landmarks_2D_in_frames_dir):
+                os.makedirs(landmarks_2D_in_frames_dir)
+
+    # Make landmarks_in_faces dir
+    if save_landmarks_as_txt or save_landmarks_as_csv:
+        if using_dlib_or_face_alignment == 'dlib':
+            landmarks_in_faces_dir = os.path.join(output_dir, "landmarks_in_faces", language, actor)
+            if not os.path.exists(landmarks_in_faces_dir):
+                os.makedirs(landmarks_in_faces_dir)
+            landmarks_3D_in_faces_dir = None
+            landmarks_2D_in_faces_dir = None
+        elif using_dlib_or_face_alignment == 'face_alignment': 
+            landmarks_in_faces_dir = None
+            landmarks_3D_in_faces_dir = os.path.join(output_dir, "landmarks_3D_in_faces", language, actor)
+            if not os.path.exists(landmarks_3D_in_faces_dir):
+                os.makedirs(landmarks_3D_in_faces_dir)
+            landmarks_2D_in_faces_dir = os.path.join(output_dir, "landmarks_2D_in_faces", language, actor)
+            if not os.path.exists(landmarks_2D_in_faces_dir):
+                os.makedirs(landmarks_2D_in_faces_dir)
 
     # Read video
     video_frames = imageio.get_reader(video_file)
 
-    if save_gif:
-        faces_list = []
+    # if save_landmarks_as_txt or save_landmarks_as_csv:
+    landmarks_in_frames_list = []
+    landmarks_3D_in_frames_list = []
+    landmarks_2D_in_frames_list = []
+    landmarks_in_faces_list = []
+    landmarks_3D_in_faces_list = []
+    landmarks_2D_in_faces_list = []
 
-    if save_landmarks_as_txt or save_landmarks_as_csv:
-        landmarks_list = []
+    try:
 
-    # For each frame in the video
-    for frame_number, frame in tqdm.tqdm(enumerate(video_frames), total=len(video_frames)):
-        video_frame_name = video_file_name + "_frame_{0:03d}.png".format(frame_number)
+        # Check for face only every 10th frame
+        # Meanwhile, save the 10 frames of a batch in an array
+        # If 10th frame has face, or prev_batch had face, check for facial landmarks, etc.
+        # in all frames of batch
+        batch_frame_numbers = []
+        batch_frames = []
+        detect_face_shapes = False
 
-        # Get landmarks
-        if using_dlib_or_face_alignment == 'dlib':
-            landmarks = utils.get_landmarks_using_dlib_detector_and_predictor(frame, dlib_detector, dlib_predictor)
+        # For each frame in the video
+        for frame_number, frame in tqdm.tqdm(enumerate(video_frames), total=len(video_frames)):
 
-        elif using_dlib_or_face_alignment == 'face_alignment':
-            landmarks = utils.get_landmarks_using_FaceAlignment(frame, face_alignment_object)
+            if frame_number < skip_frames:
+                continue
 
-        # If landmarks are found
-        if landmarks is not None:
+            # Till frame_number+1 % 10 == 0, only save the frames
+            if (frame_number + 1) % check_for_face_every_nth_frame != 0:
+                batch_frame_numbers.append(frame_number)
+                batch_frames.append(frame)
+                continue
 
-            # Crop 1.5x face, resize to 224x224, note new landmark locations
-            face_square_expanded_resized, landmarks_in_face_square_expanded_resized = square_expand_resize_face_and_modify_landmarks(frame,
-                                                                                                                                     landmarks,
-                                                                                                                                     crop_expanded_face_square)
+            # At the 10th frame
+            batch_frame_numbers.append(frame_number)
+            batch_frames.append(frame)
 
-            if save_gif:
-                faces_list.append(face_square_expanded_resized)
+            # Check if 10th frame has faces
+            # Get landmarks
+            if using_dlib_or_face_alignment == 'dlib':
+                landmarks = utils.get_landmarks_using_dlib_detector_and_predictor(frame, dlib_detector, dlib_predictor)
 
-            if save_landmarks_as_txt or save_landmarks_as_csv:
-                landmarks_list.append([video_frame_name] + [list(l) for l in landmarks_in_face_square_expanded_resized])
+            elif using_dlib_or_face_alignment == 'face_alignment':
+                landmarks = utils.get_landmarks_using_FaceAlignment(frame, face_alignment_2D_object)
 
-            # Write face image
-            cv2.imwrite(os.path.join(video_frames_dir, video_frame_name), cv2.cvtColor(face_square_expanded_resized, cv2.COLOR_RGB2BGR))
+            # If person's face is not present, and was not present in previous batch - reset and continue
+            if landmarks is None and not detect_face_shapes:
+                if verbose:
+                    print("\nNo person face detected in 10th frame of batch\n")
+                detect_face_shapes = False
 
-            if save_with_blackened_mouths_and_polygons:
+            # Else if person's face is not present, but was present in previous batch - detect faces for all frames in batch, and deactivate detect_face_shapes
+            elif landmarks is None and detect_face_shapes:
+                if verbose:
+                    print("\nNo person face detected in 10th frame of batch, but was in prev_batch, so running\n")
+                for batch_frame_number, batch_frame in zip(batch_frame_numbers, batch_frames):
 
-                # Make new frame with blackened mouth
-                mouth_landmarks = landmarks_in_face_square_expanded_resized[48:68, :2]
-                face_with_blackened_mouth_and_mouth_polygon = utils.make_black_mouth_and_lips_polygons(face_square_expanded_resized, mouth_landmarks)
+                    landmarks_in_frames_list, landmarks_3D_in_frames_list, landmarks_2D_in_frames_list, \
+                        landmarks_in_faces_list, landmarks_3D_in_faces_list, landmarks_2D_in_faces_list = get_landmarks_and_save(batch_frame_number, batch_frame, video_file_name,
+                            using_dlib_or_face_alignment, dlib_detector, dlib_predictor, face_alignment_3D_object, face_alignment_2D_object,
+                            crop_expanded_face_square, resize_to_shape, save_with_blackened_mouths_and_polygons,
+                            landmarks_in_frames_list, landmarks_3D_in_frames_list, landmarks_2D_in_frames_list,
+                            landmarks_in_faces_list, landmarks_3D_in_faces_list, landmarks_2D_in_faces_list,
+                            video_faces_combined_dir, video_faces_combined_3D_dir, video_faces_combined_2D_dir)
 
-                # Write combined frame+frame_with_blacked_mouth_and_polygon image
-                face_combined = np.hstack((face_square_expanded_resized, face_with_blackened_mouth_and_mouth_polygon))
-                video_frame_combined_name = video_file_name + "_frame_combined_{0:03d}.png".format(frame_number)
-                cv2.imwrite(os.path.join(video_frames_combined_dir, video_frame_combined_name), cv2.cvtColor(face_combined, cv2.COLOR_RGB2BGR))
+                detect_face_shapes = False
 
-        # If landmarks are not found
-        else:
-            if save_landmarks_as_txt or save_landmarks_as_csv:
-                landmarks_list.append([video_frame_name] + [])
+            # Else if person's face is present, detect faces for all frames in batch, and activate detect_face_shapes
+            elif landmarks is not None:
+                if verbose:
+                    print("\nPerson face detected in 10th frame of batch, running\n")
+                for batch_frame_number, batch_frame in zip(batch_frame_numbers, batch_frames):
+
+                    landmarks_in_frames_list, landmarks_3D_in_frames_list, landmarks_2D_in_frames_list, \
+                        landmarks_in_faces_list, landmarks_3D_in_faces_list, landmarks_2D_in_faces_list = get_landmarks_and_save(batch_frame_number, batch_frame, video_file_name,
+                            using_dlib_or_face_alignment, dlib_detector, dlib_predictor, face_alignment_3D_object, face_alignment_2D_object,
+                            crop_expanded_face_square, resize_to_shape, save_with_blackened_mouths_and_polygons,
+                            landmarks_in_frames_list, landmarks_3D_in_frames_list, landmarks_2D_in_frames_list,
+                            landmarks_in_faces_list, landmarks_3D_in_faces_list, landmarks_2D_in_faces_list,
+                            video_faces_combined_dir, video_faces_combined_3D_dir, video_faces_combined_2D_dir)
+
+                detect_face_shapes = True
+
+            # Reset batch_frame_numbers and batch_frames
+            batch_frame_numbers = []
+            batch_frames = []
+
+    except KeyboardInterrupt:
+        # Clean exit by saving landmarks
+        print("\n\nCtrl+C was pressed!\n\n")
 
     # Save gif
-    if save_gif:
-        imageio.mimsave(os.path.join(video_frames_dir, video_file_name + ".gif"), faces_list)
+    # if save_gif:
+    #     imageio.mimsave(os.path.join(video_frames_dir, video_file_name + ".gif"), faces_list)
 
     # Save landmarks
     # txt is smaller than csv
     if save_landmarks_as_txt:
-        write_landmarks_list_as_txt(os.path.join(landmarks_dir, video_file_name + "_landmarks.txt"), landmarks_list)
+        if using_dlib_or_face_alignment == 'dlib':
+            utils.write_landmarks_list_as_txt(os.path.join(landmarks_in_frames_dir, video_file_name + "_landmarks_in_frames.txt"), landmarks_in_frames_list)
+            utils.write_landmarks_list_as_txt(os.path.join(landmarks_in_faces_dir, video_file_name + "_landmarks_in_faces.txt"), landmarks_in_faces_list)
+        elif using_dlib_or_face_alignment == 'face_alignment':
+            utils.write_landmarks_list_as_txt(os.path.join(landmarks_3D_in_frames_dir, video_file_name + "_landmarks_3D_in_frames.txt"), landmarks_3D_in_frames_list)
+            utils.write_landmarks_list_as_txt(os.path.join(landmarks_2D_in_frames_dir, video_file_name + "_landmarks_2D_in_frames.txt"), landmarks_2D_in_frames_list)
+            utils.write_landmarks_list_as_txt(os.path.join(landmarks_3D_in_faces_dir, video_file_name + "_landmarks_3D_in_faces.txt"), landmarks_3D_in_faces_list)
+            utils.write_landmarks_list_as_txt(os.path.join(landmarks_2D_in_faces_dir, video_file_name + "_landmarks_2D_in_faces.txt"), landmarks_2D_in_faces_list)
     if save_landmarks_as_csv:
-        write_landmarks_list_as_csv(os.path.join(landmarks_dir, video_file_name + "_landmarks.csv"), landmarks_list)
+        utils.write_landmarks_list_as_csv(os.path.join(landmarks_in_frames_dir, video_file_name + "_landmarks_in_frames.csv"), landmarks_in_frames_list)
+        utils.write_landmarks_list_as_csv(os.path.join(landmarks_in_faces_dir, video_file_name + "_landmarks_in_faces.csv"), landmarks_in_faces_list)
 
 
-def square_expand_resize_face_and_modify_landmarks(frame, landmarks, face_square_expanded_resized=True):
+def get_landmarks_and_save(frame_number, frame, video_file_name,
+                           using_dlib_or_face_alignment, dlib_detector, dlib_predictor, face_alignment_3D_object, face_alignment_2D_object,
+                           crop_expanded_face_square, resize_to_shape, save_with_blackened_mouths_and_polygons,
+                           landmarks_in_frames_list, landmarks_3D_in_frames_list, landmarks_2D_in_frames_list,
+                           landmarks_in_faces_list, landmarks_3D_in_faces_list, landmarks_2D_in_faces_list,
+                           video_faces_combined_dir, video_faces_combined_3D_dir, video_faces_combined_2D_dir):
 
-    # Get face bounding box from landmarks
-    # dlib.rectangle = left, top, right, bottom
-    if face_square_expanded_resized:
-        # face_rect = dlib.rectangle(int(np.min(landmarks[:, 0])), int(np.min(landmarks[:, 1])), int(np.max(landmarks[:, 0])), int(np.max(landmarks[:, 1])))
-        face_rect = [int(np.min(landmarks[:, 0])), int(np.min(landmarks[:, 1])), int(np.max(landmarks[:, 0])), int(np.max(landmarks[:, 1]))]
+            video_frame_name = video_file_name + "_frame_{0:05d}.png".format(frame_number)
+            # cv2.imwrite(os.path.join(video_frames_dir, video_frame_name), cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
 
-        # Make face bounding box square to the greater of width and height
-        face_rect_square = make_rect_shape_square(face_rect)
+            # Get landmarks
+            if using_dlib_or_face_alignment == 'dlib':
+                landmarks = utils.get_landmarks_using_dlib_detector_and_predictor(frame, dlib_detector, dlib_predictor)
+                landmarks_3D = None
+                landmarks_2D = None
 
-        # Expand face bounding box to 1.5x
-        face_rect_square_expanded = utils.expand_rect(face_rect_square, scale=1.5, frame_shape=(frame.shape[0], frame.shape[1]))
+            elif using_dlib_or_face_alignment == 'face_alignment':
+                landmarks = None
+                landmarks_3D = utils.get_landmarks_using_FaceAlignment(frame, face_alignment_3D_object)
+                landmarks_2D = utils.get_landmarks_using_FaceAlignment(frame, face_alignment_2D_object)
 
-    else:
-        face_rect_square_expanded = [0, 0, frame.shape[1], frame.shape[0]]
-    
-    # Resize frame[face_bounding_box] to 224x224
-    face_square_expanded = frame[face_rect_square_expanded[1]:face_rect_square_expanded[3], face_rect_square_expanded[0]:face_rect_square_expanded[2]]
-    face_square_expanded_resized = np.round(resize(face_square_expanded, (224, 224), preserve_range=True)).astype('uint8')
+            # If landmarks are found
 
-    # Note the landmarks in the expanded resized face
-    # 2D landmarks
-    if len(landmarks[0]) == 2:
-        landmarks_in_face_square_expanded_resized = np.round([[(x-face_rect_square_expanded[0])/(face_rect_square_expanded[2] - face_rect_square_expanded[0])*224,
-                                                               (y-face_rect_square_expanded[1])/(face_rect_square_expanded[3] - face_rect_square_expanded[1])*224] for (x, y) in landmarks]).astype('int')
-    # 3D landmarks
-    elif len(landmarks[0]) == 3:
-        landmarks_in_face_square_expanded_resized = np.round([[(x-face_rect_square_expanded[0])/(face_rect_square_expanded[2] - face_rect_square_expanded[0])*224,
-                                                               (y-face_rect_square_expanded[1])/(face_rect_square_expanded[3] - face_rect_square_expanded[1])*224,
-                                                               z] for (x, y, z) in landmarks]).astype('int')
-                                                               # z/(face_rect_square_expanded[3] - face_rect_square_expanded[1])*224] for (x, y, z) in landmarks])
+            if landmarks is not None:                
+                # Save landmarks in frames
+                landmarks_in_frames_list.append([video_frame_name] + [list(l) for l in landmarks])
+                landmarks_in_faces_list = save_landmarks_and_faces_combined(frame, landmarks, resize_to_shape, crop_expanded_face_square,
+                                                                            save_with_blackened_mouths_and_polygons,
+                                                                            landmarks_in_faces_list,
+                                                                            video_file_name, video_frame_name, video_faces_combined_dir)
 
-    return face_square_expanded_resized, landmarks_in_face_square_expanded_resized
+            if landmarks_3D is not None:
+                # Save landmarks in frames
+                landmarks_3D_in_frames_list.append([video_frame_name] + [list(l) for l in landmarks_3D])
+                landmarks_3D_in_faces_list = save_landmarks_and_faces_combined(frame, landmarks_3D, resize_to_shape, crop_expanded_face_square,
+                                                                               save_with_blackened_mouths_and_polygons,
+                                                                               landmarks_3D_in_faces_list,
+                                                                               video_file_name, video_frame_name, video_faces_combined_3D_dir)
 
+            if landmarks_2D is not None:
+                # Save landmarks in frames
+                landmarks_2D_in_frames_list.append([video_frame_name] + [list(l) for l in landmarks_2D])
+                landmarks_2D_in_faces_list = save_landmarks_and_faces_combined(frame, landmarks_2D, resize_to_shape, crop_expanded_face_square,
+                                                                               save_with_blackened_mouths_and_polygons,
+                                                                               landmarks_2D_in_faces_list,
+                                                                               video_file_name, video_frame_name, video_faces_combined_2D_dir)
 
-def make_rect_shape_square(rect):
-    # Rect: (x, y, x+w, y+h)
-    x = rect[0]
-    y = rect[1]
-    w = rect[2] - x
-    h = rect[3] - y
-    # If width > height
-    if w > h:
-        new_x = x
-        new_y = int(y - (w-h)/2)
-        new_w = w
-        new_h = w
-    # Else (height > width)
-    else:
-        new_x = int(x - (h-w)/2)
-        new_y = y
-        new_w = h
-        new_h = h
-    # Return
-    return [new_x, new_y, new_x + new_w, new_y + new_h]
+            # If landmarks are not found
+            # else:
+            #     if save_landmarks_as_txt or save_landmarks_as_csv:
+            #         landmarks_in_frames_list.append([video_frame_name] + [])
+            #         landmarks_in_faces_list.append([video_frame_name] + [])
 
-
-def write_landmarks_list_as_csv(path, landmarks_list):
-    with open(path, "w") as f:
-        writer = csv.writer(f)
-        writer.writerows(landmarks_list)
+            return landmarks_in_frames_list, landmarks_3D_in_frames_list, landmarks_2D_in_frames_list, \
+                landmarks_in_faces_list, landmarks_3D_in_faces_list, landmarks_2D_in_faces_list
 
 
-def write_landmarks_list_as_txt(path, landmarks_list):
-    with open(path, "w") as f:
-        for landmarks_of_file in landmarks_list:
-            line = ""
-            for landmark in landmarks_of_file:
-                line += str(landmark) + " "
-            line = line[:-1] + "\n"
-            f.write(line)
+def save_landmarks_and_faces_combined(frame, landmarks, resize_to_shape, crop_expanded_face_square, save_with_blackened_mouths_and_polygons,\
+                                      landmarks_in_faces_list, video_file_name, video_frame_name, video_faces_combined_dir):
+
+                # Crop 1.5x face, resize to 224x224, note new landmark locations
+                face_square_expanded_resized, \
+                    landmarks_in_face_square_expanded_resized, _, _ = utils.get_square_expand_resize_face_and_modify_landmarks(frame,
+                                                                                                                               landmarks,
+                                                                                                                               resize_to_shape,
+                                                                                                                               crop_expanded_face_square)
+
+                # Save landmarks in faces
+                landmarks_in_faces_list.append([video_frame_name] + [list(l) for l in landmarks_in_face_square_expanded_resized])
+
+                # Write face image
+                # if not save_with_blackened_mouths_and_polygons:
+                #     cv2.imwrite(os.path.join(video_faces_dir, video_frame_name), cv2.cvtColor(face_square_expanded_resized, cv2.COLOR_RGB2BGR))
+
+                if save_with_blackened_mouths_and_polygons:
+
+                    # Make new frame with blackened mouth
+                    mouth_landmarks = landmarks_in_face_square_expanded_resized[48:68, :2]
+                    face_with_blackened_mouth_and_mouth_polygon = utils.make_black_mouth_and_lips_polygons(face_square_expanded_resized, mouth_landmarks)
+
+                    # Write combined frame+frame_with_blacked_mouth_and_polygon image
+                    faces_combined = np.hstack((face_square_expanded_resized, face_with_blackened_mouth_and_mouth_polygon))
+                    video_faces_combined_name = video_file_name + "_faces_combined_{0:05d}.png".format(frame_number)
+                    cv2.imwrite(os.path.join(video_faces_combined_dir, video_faces_combined_name), cv2.cvtColor(faces_combined, cv2.COLOR_RGB2BGR))
+
+                return landmarks_in_faces_list
 
 
 def correct_video_numbers_in_metadata(d, actor, write=False, txt_file_path=None):
