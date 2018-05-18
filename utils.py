@@ -48,15 +48,21 @@ def load_dlib_detector_and_predictor(verbose=False):
             config.SHAPE_PREDICTOR_PATH, "(load_detector_and_predictor)\n\n")
 
 
-def load_face_alignment_object(enable_cuda=False, flip_input=False, use_cnn_face_detector=False, verbose=False):
+def load_face_alignment_object(d='3D', enable_cuda=False, flip_input=False, use_cnn_face_detector=False, verbose=False):
     # Check https://github.com/1adrianb/face-alignment for installation instructions
     if verbose:
         print("Loading FaceAlignment object ...")
     import face_alignment
-    return face_alignment.FaceAlignment(face_alignment.LandmarksType._3D,
-                                        enable_cuda=enable_cuda,
-                                        flip_input=flip_input,
-                                        use_cnn_face_detector=use_cnn_face_detector)
+    if d == '3D':
+        return face_alignment.FaceAlignment(face_alignment.LandmarksType._3D,
+                                            enable_cuda=enable_cuda,
+                                            flip_input=flip_input,
+                                            use_cnn_face_detector=use_cnn_face_detector)
+    if d == '2D':
+        return face_alignment.FaceAlignment(face_alignment.LandmarksType._2D,
+                                            enable_cuda=enable_cuda,
+                                            flip_input=flip_input,
+                                            use_cnn_face_detector=use_cnn_face_detector)
 
 
 def load_dlib_detector_predictor_facerec(config):
@@ -96,6 +102,14 @@ def get_landmarks_using_FaceAlignment(frame, face_alignment_object):
     landmarks = face_alignment_object.get_landmarks(frame)
     if landmarks is not None:
         return np.round(landmarks[0]).astype('int')
+    else:
+        return None
+
+
+def get_all_landmarks_using_FaceAlignment(frame, face_alignment_object):
+    landmarks = face_alignment_object.get_landmarks(frame)
+    if landmarks is not None:
+        return np.round(landmarks).astype('int')
     else:
         return None
 
@@ -198,8 +212,8 @@ def get_square_expand_resize_face_and_modify_landmarks(frame, landmarks, resize_
     elif len(landmarks[0]) == 3:
         landmarks_in_face_square_expanded_resized = np.round([[(x-face_rect_square_expanded[0])/(face_rect_square_expanded[2] - face_rect_square_expanded[0])*resize_to_shape[1],
                                                                (y-face_rect_square_expanded[1])/(face_rect_square_expanded[3] - face_rect_square_expanded[1])*resize_to_shape[0],
-                                                               z] for (x, y, z) in landmarks]).astype('int')
-                                                               # z/(face_rect_square_expanded[3] - face_rect_square_expanded[1])*224] for (x, y, z) in landmarks])
+                                                               z] for (x, y, z) in landmarks.astype('float')]).astype('int')
+                                                               # z/(face_rect_square_expanded[3] - face_rect_square_expanded[1])*224] for (x, y, z) in landmarks.astype('float')]).astype('int')
 
     return face_square_expanded_resized, landmarks_in_face_square_expanded_resized, face_rect_square_expanded, face_original_size
 
@@ -402,6 +416,11 @@ def write_landmarks_list_as_txt(path, landmarks_list):
             line = line[:-1] + "\n"
             f.write(line)
 
+
+def write_landmarks_list_as_csv(path, landmarks_list):
+    with open(path, "w") as f:
+        writer = csv.writer(f)
+        writer.writerows(landmarks_list)
 
 def watch_video(video_frames):
     fig = plt.figure(figsize=(15, 15))
