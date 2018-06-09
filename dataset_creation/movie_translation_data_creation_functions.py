@@ -346,14 +346,23 @@ def correct_video_numbers_in_metadata(d, actor, write=False, txt_file_path=None)
     return d
 
 
-def write_combined_frames_with_blackened_mouths_and_mouth_polygons(video_name):
+def write_combined_frames_with_blackened_mouths_and_mouth_polygons(language, actor, video_name, read_2D_dlib_or_3D='2D_dlib'):
     # Read landmarks
     # landmarks_file = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'landmarks', language, actor, video_name + "_landmarks.txt")
     # video_landmarks = read_landmarks_list_from_txt(landmarks_file)
-    video_landmarks = read_landmarks(language, actor, number, read_2D_dlib_or_3D='2D_dlib')
-    video_frames_dir = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'frames', language, actor, video_name)
+    number = int(video_name.split('_')[-1])
+    try:
+        video_landmarks = utils.read_landmarks(language, actor, number, read_2D_dlib_or_3D=read_2D_dlib_or_3D)
+    except ValueError as e:
+        print(e)
+        return
+    if read_2D_dlib_or_3D:
+        actor_suffix = '_' + read_2D_dlib_or_3D
+    else:
+        actor_suffix = ''
+    video_frames_dir = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'frames', language, actor+actor_suffix, video_name)
     # Folders
-    video_frames_and_black_mouths_combined_dir = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'frames_combined', language, actor, video_name)
+    video_frames_and_black_mouths_combined_dir = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'frames_combined', language, actor+actor_suffix, video_name)
     if not os.path.exists(video_frames_and_black_mouths_combined_dir):
         os.makedirs(video_frames_and_black_mouths_combined_dir)
     # For each frame
@@ -361,11 +370,12 @@ def write_combined_frames_with_blackened_mouths_and_mouth_polygons(video_name):
         frame_name = frame_name_and_landmarks[0]
         frame_landmarks = frame_name_and_landmarks[1:]
         if len(frame_name_and_landmarks) == 69:
+            # print("Reading", os.path.join(video_frames_dir, frame_name))
             frame = cv2.cvtColor(cv2.imread(os.path.join(video_frames_dir, frame_name)), cv2.COLOR_BGR2RGB)
             mouth_landmarks = np.array(frame_landmarks[48:68])[:, :2]
             frame_with_blackened_mouth_and_lip_polygons = utils.make_black_mouth_and_lips_polygons(frame, mouth_landmarks)
             # Write image
-            frame_combined = np.hstack((frame, frame_with_blackened_mouth_and_mouth_polygon))
+            frame_combined = np.hstack((frame, frame_with_blackened_mouth_and_lip_polygons))
             cv2.imwrite(os.path.join(video_frames_and_black_mouths_combined_dir, video_name + "_frame_combined_{0:03d}.png".format(frame_number)), cv2.cvtColor(frame_combined, cv2.COLOR_RGB2BGR))
 
 

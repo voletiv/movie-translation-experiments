@@ -47,11 +47,20 @@ for language in tqdm.tqdm(sorted(os.listdir(os.path.join(config.MOVIE_TRANSLATIO
 
 # ONLY IF NOT DONE DURING PREVIOUS STEP!!!
 # # Make mouth_blacked_and_keypoints_polygon images
-# for language in tqdm.tqdm(sorted(os.listdir(os.path.join(MOVIE_TRANSLATION_DATASET_DIR, 'frames')))):
-#     for actor in tqdm.tqdm(sorted(os.listdir(os.path.join(MOVIE_TRANSLATION_DATASET_DIR, 'frames', language)))):
-#         for video_name in tqdm.tqdm(sorted(os.listdir(os.path.join(MOVIE_TRANSLATION_DATASET_DIR, 'frames', language, actor)))):
+
+# read_2D_dlib_or_3D = '3D'
+# if read_2D_dlib_or_3D:
+#     actor_suffix = '_' + read_2D_dlib_or_3D
+# else:
+#     actor_suffix = ''
+
+# for language in tqdm.tqdm(sorted(os.listdir(os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'videos')))):
+#     for actor in tqdm.tqdm(sorted(os.listdir(os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'videos', language)))):
+#         for video_name in tqdm.tqdm(sorted(os.listdir(os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'frames', language, actor+actor_suffix)))):
 #             # Make mouth_blacked_and_keypoints_polygon images for each video
-#             write_combined_frames_with_blackened_mouths_and_mouth_polygons(video_name)
+#             print(language, actor, video_name)
+#             write_combined_frames_with_blackened_mouths_and_mouth_polygons(language, actor, video_name, '3D')
+
 
 ######################################
 # Split all into train, val and test,
@@ -64,16 +73,12 @@ output_dir = os.path.join(config.PIX2PIX_CODE_DIR, 'data', actor)
 
 output_dir_train = os.path.join(output_dir, 'train')
 output_dir_val = os.path.join(output_dir, 'val')
-output_dir_test = os.path.join(output_dir, 'test')
 
 if not os.path.exists(output_dir_train):
     os.makedirs(output_dir_train)
 
 if not os.path.exists(output_dir_val):
     os.makedirs(output_dir_val)
-
-if not os.path.exists(output_dir_test):
-    os.makedirs(output_dir_test)
 
 # Read all video names
 all_video_names = []
@@ -86,20 +91,22 @@ np.random.shuffle(all_video_names)
 
 # Set train, val, test video names
 train_set_len = round(len(all_video_names) * 0.9)
-val_set_len = round(len(all_video_names) * 0.05)
-test_set_len = round(len(all_video_names) * 0.05)
+# val_set_len = round(len(all_video_names) * 0.1)
+val_set_len = len(all_video_names) - train_set_len
 
 # Train
 for video_name in tqdm.tqdm(all_video_names[:train_set_len]):
+    output_video_dir = os.path.join(output_dir_train, os.path.basename(os.path.dirname(video_name))+'/')
+    if not os.path.exists(output_video_dir):
+        os.makedirs(output_video_dir)
     for frame in sorted(glob.glob(os.path.join(video_name, '*'))):
-        a = subprocess.call(['cp', frame, output_dir_train])
+        a = subprocess.call(['cp', frame, output_video_dir])
 
 # Val
 for video_name in tqdm.tqdm(all_video_names[train_set_len:(train_set_len + val_set_len)]):
+    output_video_dir = os.path.join(output_dir_val, os.path.basename(os.path.dirname(video_name))+'/')
+    if not os.path.exists(output_video_dir):
+        os.makedirs(output_video_dir)
     for frame in sorted(glob.glob(os.path.join(video_name, '*'))):
-        a = subprocess.call(['cp', frame, output_dir_val])
-        
-# Test
-for video_name in tqdm.tqdm(all_video_names[(train_set_len + val_set_len):(train_set_len + val_set_len + test_set_len)]):
-    for frame in sorted(glob.glob(os.path.join(video_name, '*'))):
-        a = subprocess.call(['cp', frame, output_dir_test])
+        a = subprocess.call(['cp', frame, output_video_dir])
+
