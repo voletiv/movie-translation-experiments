@@ -364,6 +364,8 @@ def read_landmarks(language, actor, number, read_2D_dlib_or_3D=''):
     '''
     if read_2D_dlib_or_3D:
         actor_suffix = '_' + read_2D_dlib_or_3D
+    else:
+        actor_suffix = ''
     landmarks_file = os.path.join(config.MOVIE_TRANSLATION_DATASET_DIR, 'landmarks', language, actor + actor_suffix, actor + '_%04d' % number + "_landmarks.txt")
     if not os.path.exists(landmarks_file):
         raise ValueError("[ERROR] landmarks file does not exist! Given: " + landmarks_file)
