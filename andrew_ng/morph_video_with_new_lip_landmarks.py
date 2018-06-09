@@ -135,7 +135,7 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
                 raise ValueError("ERROR: landmarks_type can only be 'frames' or 'faces'! Given:" + landmarks_type)
 
             if not os.path.exists(landmarks_dir):
-                raise ValueError("ERROR: landmarks_in_frames_person_dir not not exist! Given:" + landmarks_in_frames_person_dir)
+                raise ValueError("ERROR: landmarks_dir not not exist! Given:" + landmarks_dir)
 
             # Read all landmarks files
             landmarks_files = sorted(glob.glob(os.path.join(landmarks_dir, '*.txt')))
