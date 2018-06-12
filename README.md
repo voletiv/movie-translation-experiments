@@ -19,22 +19,28 @@ Apart from them, to get 3D landmarks, the following repository is required: [fac
 
 The installation instructions for this for Ubuntu are (according to the [face_alignment](https://github.com/1adrianb/face-alignment) page):
 
-- ```pip3 install numpy pyyaml mkl setuptools cmake gcc cffi```
+- `pip3 install numpy pyyaml mkl setuptools cmake gcc cffi`
     - I had problems installing gcc, but I skipped it because it was already installed (and might not be possible via pip)
 
 (In case conda is not installed: [miniconda3](https://conda.io/miniconda.html))
 
-- ```conda install -c soumith magma-cuda80``` (Depending on CUDA version: can be checked via ```nvcc -V```; I installed ```conda install -c soumith magma-cuda91``` for CUDA 9.1)
+- `conda install -c soumith magma-cuda80` (Depending on CUDA version: can be checked via ```nvcc -V```; I installed ```conda install -c soumith magma-cuda91``` for CUDA 9.1)
 
 - Install Pytorch
-    - git clone --recursive https://github.com/pytorch/pytorch
-    - python3 setup.py install
+    - `git clone --recursive https://github.com/pytorch/pytorch`
+    - `python3 setup.py install`
 
 - Install face_alignment
-    - git clone https://github.com/1adrianb/face-alignment
-    - sudo pip3 install -r requirements.txt
+    - `git clone https://github.com/1adrianb/face-alignment`
+    - `sudo pip3 install -r requirements.txt`
 
-At this point, I got the error "-- Could NOT find Boost", and instructions to install Boost:
+    At this point, I got the error `"-- Could NOT find Boost"`, and instructions to install Boost (following).
+
+    While installing boost, encountered error `'fatal error: pyconfig.h: No such file or directory'`. Solved using `export CPLUS_INCLUDE_PATH=/home/voletiv/miniconda3/include/python3.6m/` (https://github.com/BVLC/caffe/issues/410)
+
+    - Install Boost
+
+```
   --  *****************************************************************************************************
   --  To compile Boost.Python yourself download boost from boost.org and then go into the boost root folder
   --  and run these commands:
@@ -42,8 +48,9 @@ At this point, I got the error "-- Could NOT find Boost", and instructions to in
   --     ./b2
   --     sudo ./b2 install
   --  *****************************************************************************************************
+```
 
-    - python3 setup.py install
+    - `python3 setup.py install`
 
 # face_recognition
 
