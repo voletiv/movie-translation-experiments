@@ -1,6 +1,6 @@
 import cv2
 import imageio
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import numpy as np
 import os
 import subprocess
@@ -425,6 +425,7 @@ def write_landmarks_list_as_csv(path, landmarks_list):
         writer.writerows(landmarks_list)
 
 def watch_video(video_frames):
+    import matplotlib.pyplot as plt
     fig = plt.figure(figsize=(15, 15))
     ax = fig.add_subplot(111)
     plt.ion()
@@ -437,6 +438,7 @@ def watch_video(video_frames):
 
 
 def plot_2D_landmarks(image, landmarks, save_or_show='show', fig_name='a.png'):
+    import matplotlib.pyplot as plt
     # ONLY plt.imshow!! Need to execute plt.show() separately!
     frame = np.array(image)
     if frame.max() <= 1.:
@@ -454,6 +456,7 @@ def plot_2D_landmarks(image, landmarks, save_or_show='show', fig_name='a.png'):
 
 
 def plot_3D_landmarks(image, landmarks, save_or_show='show', fig_name='a.png'):
+    import matplotlib.pyplot as plt
     #TODO: Make this nice
     from mpl_toolkits.mplot3d import Axes3D
     fig = plt.figure(figsize=plt.figaspect(.5))

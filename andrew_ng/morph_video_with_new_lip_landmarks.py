@@ -16,7 +16,6 @@ from skimage.transform import resize
 
 import morph_video_config
 
-from vad import VoiceActivityDetector
 
 ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '../'))
 sys.path.append(ROOT_DIR)
@@ -29,6 +28,7 @@ def get_closed_lip_cluster_center():
 
 
 def detect_no_voice_activity(audio_file, voice_activity_threshold, video_fps):
+    from vad import VoiceActivityDetector
     if os.path.splitext(audio_file)[-1] != '.wav':
         ret = subprocess.call(['ffmpeg', '-loglevel', 'error', '-i', audio_file, '-vn', '-y', '-codec:a', 'pcm_s16le', '-ar', '16000', '-ac', '1', '-f', 'wav', '%s.wav' % audio_file])
         audio_file = '%s.wav' % audio_file
@@ -513,7 +513,7 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
         gen_input_faces = []
         batch_size = 8
         num_of_batches = int(np.ceil(len(faces_with_black_mouth_polygons)/batch_size))
-        for batch in range(num_of_batches):
+        for batch in tqdm.tqdm(range(num_of_batches)):
             faces_with_bmp_batch = faces_with_black_mouth_polygons[batch*batch_size:(batch+1)*batch_size]
             for face in faces_with_bmp_batch:
                 gen_input_faces.append(face)
