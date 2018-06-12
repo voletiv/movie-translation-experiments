@@ -34,13 +34,7 @@ The installation instructions for this for Ubuntu are (according to the [face_al
     - `git clone https://github.com/1adrianb/face-alignment`
     - `sudo pip3 install -r requirements.txt`
 
-<<<<<<< HEAD
     At this point, I got the error `"-- Could NOT find Boost"`, and instructions to install Boost. But I installed it using: `sudo apt install libboost-all-dev`, and then re-ran `sudo pip3 install -r requirements.txt`.
-=======
-    At this point, I got the error `"-- Could NOT find Boost"`, and instructions to install Boost. But I installed it using:
-
-    - Install Boost: `sudo apt install libboost-all-dev`
->>>>>>> edcc728f1ad0c80376c24a0f1402b486fb2dcc0e
 
     - `python3 setup.py install`
 
