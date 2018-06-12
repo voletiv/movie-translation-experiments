@@ -33,6 +33,16 @@ The installation instructions for this for Ubuntu are (according to the [face_al
 - Install face_alignment
     - git clone https://github.com/1adrianb/face-alignment
     - sudo pip3 install -r requirements.txt
+
+At this point, I got the error "-- Could NOT find Boost", and instructions to install Boost:
+  --  *****************************************************************************************************
+  --  To compile Boost.Python yourself download boost from boost.org and then go into the boost root folder
+  --  and run these commands:
+  --     ./bootstrap.sh --with-libraries=python
+  --     ./b2
+  --     sudo ./b2 install
+  --  *****************************************************************************************************
+
     - python3 setup.py install
 
 # face_recognition
