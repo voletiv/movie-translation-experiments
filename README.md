@@ -49,6 +49,7 @@ The installation instructions for this for Ubuntu are (according to the [face_al
   --     sudo ./b2 install
   --  *****************************************************************************************************
 ```
+
     - `python3 setup.py install`
 
 # face_recognition
