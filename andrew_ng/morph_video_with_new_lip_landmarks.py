@@ -378,6 +378,48 @@ def transform_landmarks_by_mouth_centroid_and_scales(source_lip_landmarks, targe
     return np.round(new_mouth_landmarks).astype('int')
 
 
+def transform_landmarks_by_mouth_centroid_and_scale_x(source_lip_landmarks, target_lip_landmarks):
+
+    source_lip_landmarks = source_lip_landmarks.astype('float')
+    target_lip_landmarks = target_lip_landmarks.astype('float')
+
+    # Mouth left corner
+    ml_source = source_lip_landmarks[0]
+    ml_target = target_lip_landmarks[0]
+
+    # Mouth right corner
+    mr_source = source_lip_landmarks[6]
+    mr_target = target_lip_landmarks[6]
+
+    # Mouth top
+    mt_source = source_lip_landmarks[3]
+    mt_target = target_lip_landmarks[3]
+
+    # Mouth bottom
+    mb_source = source_lip_landmarks[9]
+    mb_target = target_lip_landmarks[9]
+
+    # Centroid
+    mouth_centroid_source = (ml_source + mr_source + mt_source + mb_source)/4
+    mouth_centroid_target = (ml_target + mr_target + mt_target + mb_target)/4
+
+    # Centre both mouths
+    mouth_centred_source = source_lip_landmarks - mouth_centroid_source
+    mouth_centred_target = target_lip_landmarks - mouth_centroid_target
+
+    # Calculate scale_x
+    scale_x = (mr_target - ml_target)[0]/(mr_source - ml_source)[0]
+    # print(scale_x, scale_y)
+
+    # Scale the source centred landmarks
+    mouth_centred_source = mouth_centred_source * scale_x
+
+    # Centre it to the target centre
+    new_mouth_landmarks = mouth_centred_source + mouth_centroid_target
+
+    return np.round(new_mouth_landmarks).astype('int')
+
+
 def tmp_morph_video_with_new_lip_landmarks(generator_model, target_video_file, target_audio_file, lip_landmarks_mat_file, output_video_name,
                                            target_video_landmarks_file=None, save_making=True, save_generated_video=True, stabilize_landmarks=False,
                                            replace_closed_mouth=False, voice_activity_threshold=0.6, lm_prepend_time_in_ms=200,
@@ -494,7 +536,7 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
         # Tx source lip landmarks to good target video position, etc.
         target_lip_landmarks_in_frame = np.array(landmarks_in_face_square_expanded_resized[48:68])
         # target_lip_landmarks_tx_from_source, M = affine_transform_landmarks(source_lip_landmarks_in_frame, target_lip_landmarks_in_frame, fullAffine=True, prev_M=M)
-        target_lip_landmarks_tx_from_source = transform_landmarks_by_mouth_centroid_and_scales(source_lip_landmarks_in_frame, target_lip_landmarks_in_frame)
+        target_lip_landmarks_tx_from_source = transform_landmarks_by_mouth_centroid_and_scale_x(source_lip_landmarks_in_frame, target_lip_landmarks_in_frame)
         # target_lip_landmarks_tx_from_source = transform_landmarks_by_upper_lips(source_lip_landmarks_in_frame, target_lip_landmarks_in_frame)
 
         # Make face with black mouth polygon
