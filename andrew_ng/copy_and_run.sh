@@ -2,13 +2,13 @@ for dir_name in */;
 do
 name=${dir_name%?};
 echo "${name}";
+:'
 # Delete old landmarks
 rm ${name}/*.mat;
 # Copy new landmarks
 echo "Copying landmarks from /tmp";
 echo "cp /tmp/landmarks/genKp/${name}_generated_lip_landmarks.mat ${name}/${name}_hindi_abhishek_generated_lip_landmarks.mat;"
 cp /tmp/landmarks/genKp/${name}_generated_lip_landmarks.mat ${name}/${name}_hindi_abhishek_generated_lip_landmarks.mat;
-:'
 # Copy audio files
 echo "Copying wav file";
 cp /tmp/landmarks/genKp/new_hindi/test_wav/${name}.wav ${name}/${name}_hindi_abhishek.wav;
@@ -26,9 +26,12 @@ python /users/abhishek/lipreading/visual_dub/movie-translation-experiments/andre
 python /users/abhishek/lipreading/visual_dub/movie-translation-experiments/andrew_ng/morph_video_with_new_lip_landmarks.py "${name}/${name}.mp4" -a "${name}/${name}_hindi_abhishek.wav" -l "${name}/${name}_hindi_abhishek_generated_lip_landmarks.mat" -o "${name}/${name}_hindi_abhishek.mp4" -vadthresh 0.9 -r -m -y -v;
 '
 # Generate new video, also generate making_video
-python /users/abhishek/lipreading/visual_dub/movie-translation-experiments/andrew_ng/morph_video_with_new_lip_landmarks.py "${name}/${name}.mp4" -a "${name}/${name}_hindi_abhishek.wav" -l "${name}/${name}_hindi_abhishek_generated_lip_landmarks.mat" -o "${name}/${name}_hindi_abhishek.mp4" -m -y -v;
+/usr/bin/python3 /users/abhishek/lipreading/visual_dub/movie-translation-experiments/andrew_ng/morph_video_with_new_lip_landmarks.py "${name}/${name}.mp4" -a "${name}/${name}_hindi_abhishek.wav" -l "${name}/${name}_hindi_abhishek_generated_lip_landmarks.mat" -o "${name}/${name}_hindi_abhishek.mp4" -g "/users/abhishek/lipreading/visual_dub/models/20180614_022752_20180606_115113_telugu_finetuned_on_andrew_ng_new_dlib/generator_latest.h5" -m -y -v;
+# Generate new video with original audio, also generate making_video
+ffmpeg -i "${name}/${name}_hindi_abhishek.mp4" -i "${name}/${name}.mp4" -c:v copy -map 0:v:0 -map 1:a:0 -strict -2 "${name}/${name}_hindi_abhishek_lips_with_orig_audio.mp4"
 done
 
+:'
 # Make videos of lip landmark plots (graphs)
 for dir_name in */;
 do
@@ -37,4 +40,5 @@ echo "${name}";
 echo "Making video of landmarks";
 python /users/abhishek/lipreading/visual_dub/movie-translation-experiments/lip_landmarks_experiments/make_video_of_lip_landmarks.py "${name}/${name}_hindi_abhishek_generated_lip_landmarks.mat" -a "${name}/${name}_hindi_abhishek.wav" -o "${name}/${name}_hindi_abhishek_generated_lip_landmarks.mp4" -y;
 done
+'
 
