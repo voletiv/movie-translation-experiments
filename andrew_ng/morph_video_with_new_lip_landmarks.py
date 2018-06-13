@@ -533,9 +533,9 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
         if save_making:
             for i in range(len(making_frames)):
                 # if frames_with_no_landmarks[i]:
-                making_frames[i][-generator_model_input_rows:, :generator_model_input_cols] = faces_original[i]
+                #     making_frames[i][-generator_model_input_rows:, :generator_model_input_cols] = faces_original[i]
                 # else:
-                #     making_frames[i][-generator_model_input_rows:, :generator_model_input_cols] = new_faces[i]
+                making_frames[i][-generator_model_input_rows:, :generator_model_input_cols] = new_faces[i]
    
         # Reintegrate generated faces into frames
         if verbose:
