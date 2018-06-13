@@ -271,7 +271,7 @@ def get_landmarks_and_save(frame_number, frame, video_file_name,
             if landmarks is not None:                
                 # Save landmarks in frames
                 landmarks_in_frames_list.append([video_frame_name] + [list(l) for l in landmarks])
-                landmarks_in_faces_list = save_landmarks_and_faces_combined(frame, landmarks, resize_to_shape, crop_expanded_face_square,
+                landmarks_in_faces_list = save_landmarks_and_faces_combined(frame_number, frame, landmarks, resize_to_shape, crop_expanded_face_square,
                                                                             save_with_blackened_mouths_and_polygons,
                                                                             landmarks_in_faces_list,
                                                                             video_file_name, video_frame_name, video_faces_combined_dir)
@@ -279,7 +279,7 @@ def get_landmarks_and_save(frame_number, frame, video_file_name,
             if landmarks_3D is not None:
                 # Save landmarks in frames
                 landmarks_3D_in_frames_list.append([video_frame_name] + [list(l) for l in landmarks_3D])
-                landmarks_3D_in_faces_list = save_landmarks_and_faces_combined(frame, landmarks_3D, resize_to_shape, crop_expanded_face_square,
+                landmarks_3D_in_faces_list = save_landmarks_and_faces_combined(frame_number, frame, landmarks_3D, resize_to_shape, crop_expanded_face_square,
                                                                                save_with_blackened_mouths_and_polygons,
                                                                                landmarks_3D_in_faces_list,
                                                                                video_file_name, video_frame_name, video_faces_combined_3D_dir)
@@ -287,7 +287,7 @@ def get_landmarks_and_save(frame_number, frame, video_file_name,
             if landmarks_2D is not None:
                 # Save landmarks in frames
                 landmarks_2D_in_frames_list.append([video_frame_name] + [list(l) for l in landmarks_2D])
-                landmarks_2D_in_faces_list = save_landmarks_and_faces_combined(frame, landmarks_2D, resize_to_shape, crop_expanded_face_square,
+                landmarks_2D_in_faces_list = save_landmarks_and_faces_combined(frame_number, frame, landmarks_2D, resize_to_shape, crop_expanded_face_square,
                                                                                save_with_blackened_mouths_and_polygons,
                                                                                landmarks_2D_in_faces_list,
                                                                                video_file_name, video_frame_name, video_faces_combined_2D_dir)
@@ -302,7 +302,7 @@ def get_landmarks_and_save(frame_number, frame, video_file_name,
                 landmarks_in_faces_list, landmarks_3D_in_faces_list, landmarks_2D_in_faces_list
 
 
-def save_landmarks_and_faces_combined(frame, landmarks, resize_to_shape, crop_expanded_face_square, save_with_blackened_mouths_and_polygons,\
+def save_landmarks_and_faces_combined(frame_number, frame, landmarks, resize_to_shape, crop_expanded_face_square, save_with_blackened_mouths_and_polygons,\
                                       landmarks_in_faces_list, video_file_name, video_frame_name, video_faces_combined_dir):
 
                 # Crop 1.5x face, resize to 224x224, note new landmark locations

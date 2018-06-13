@@ -15,7 +15,8 @@ import utils
 if config.USING_DLIB_OR_FACE_ALIGNMENT == 'dlib':
     dlib_detector, dlib_predictor = utils.`load_dlib_detector_and_predictor()
 elif config.USING_DLIB_OR_FACE_ALIGNMENT == 'face_alignment':
-    face_alignment_object = utils.load_face_alignment_object(enable_cuda=config.ENABLE_CUDA)
+    face_alignment_3D_object = utils.load_face_alignment_object(d='3D', enable_cuda=config.ENABLE_CUDA)
+    face_alignment_2D_object = utils.load_face_alignment_object(d='2D', enable_cuda=config.ENABLE_CUDA)
 
 # Clip videos by dialogue times from metadata,
 # extract faces and landmarks from video clips,
@@ -41,8 +42,9 @@ for language in tqdm.tqdm(sorted(os.listdir(os.path.join(config.MOVIE_TRANSLATIO
                 extract_face_frames_and_landmarks_from_video(video_file, config.USING_DLIB_OR_FACE_ALIGNMENT, dlib_detector=dlib_detector, dlib_predictor=dlib_predictor,
                                                              save_with_blackened_mouths_and_polygons=True, save_gif=False, save_landmarks_as_txt=True)
             elif config.USING_DLIB_OR_FACE_ALIGNMENT == 'face_alignment':
-                extract_face_frames_and_landmarks_from_video(video_file, config.USING_DLIB_OR_FACE_ALIGNMENT, face_alignment_object=face_alignment_object,
-                                                             save_with_blackened_mouths_and_polygons=True, save_gif=False, save_landmarks_as_txt=True)
+                extract_face_frames_and_landmarks_from_video(video_file, config.USING_DLIB_OR_FACE_ALIGNMENT, face_alignment_3D_object=face_alignment_3D_object,
+                                                             face_alignment_2D_object=face_alignment_2D_object, save_with_blackened_mouths_and_polygons=True,
+                                                             save_landmarks_as_txt=True)
 
 
 # ONLY IF NOT DONE DURING PREVIOUS STEP!!!

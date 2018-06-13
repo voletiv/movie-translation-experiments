@@ -6,7 +6,7 @@ class MovieTranslationConfig():
         # voletiv
         MOVIE_TRANSLATION_DATASET_DIR = '/home/voletiv/Datasets/MOVIE_TRANSLATION/'
         PIX2PIX_CODE_DIR = '/home/voletiv/GitHubRepos/DeepLearningImplementations/pix2pix/'
-        YOUTUBE_VIDEOS_DIR ='/home/voletiv/Datasets/MOVIE_TRANSLATION/youtube_videos/'
+        YOUTUBE_VIDEOS_DIR = '/home/voletiv/Datasets/MOVIE_TRANSLATION/youtube_videos/'
         SHAPE_PREDICTOR_PATH = '/home/voletiv/GitHubRepos/lipreading-in-the-wild-experiments/shape-predictor/shape_predictor_68_face_landmarks.dat'
         FACE_REC_MODEL_PATH = '/home/voletiv/Downloads/dlib_face_recognition_resnet_model_v1.dat'
 
