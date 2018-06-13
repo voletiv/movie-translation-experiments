@@ -6,7 +6,8 @@
 # generator_model = '/home/voleti.vikram/DeepLearningImplementations/pix2pix/models/20180606_115113_telugu/gen_weights_epoch44929_discLoss0.3043_genTotL2.7595_genL1L0.0361_genLogL2.3985.h5'
 generator_model = '/home/voleti.vikram/DeepLearningImplementations/pix2pix/models/20180606_115113_telugu/generator_latest.h5'
 
-dataset_dir = '/shared/fusor/home/voleti.vikram/ANDREW_NG'
+# dataset_dir = '/home/voleti.vikram/ANDREW_NG'
+dataset_dir = '/users/abhishek/lipreading/visual_dub/ANDREW_NG'
 person = 'andrew_ng'
 
 ANDREW_NG_VIDEO_FPS = 30
