@@ -27,6 +27,10 @@ The installation instructions for this for Ubuntu are (according to the [face_al
 - `conda install -c soumith magma-cuda80` (Depending on CUDA version: can be checked via ```nvcc -V```; I installed ```conda install -c soumith magma-cuda91``` for CUDA 9.1)
 
 - Install Pytorch
+    - `export CMAKE_PREFIX_PATH="$(dirname $(which conda))/../" # [anaconda root directory]`
+    - `conda install numpy pyyaml mkl mkl-include setuptools cmake cffi typing`
+    - `conda install -c mingfeima mkldnn`
+    - I installed this, even though I had used soumith's one before: `conda install -c pytorch magma-cuda80 # or magma-cuda90 if CUDA 9`
     - `git clone --recursive https://github.com/pytorch/pytorch`
     - `python3 setup.py install`
 
@@ -37,6 +41,15 @@ The installation instructions for this for Ubuntu are (according to the [face_al
     At this point, I got the error `"-- Could NOT find Boost"`, and instructions to install Boost. But I installed it using: `sudo apt install libboost-all-dev`, and then re-ran `sudo pip3 install -r requirements.txt`.
 
     - `python3 setup.py install`
+
+    When verifying the installation, I got the warning `"Found GPU0 GeForce GT 750M which is of cuda capability 3.0. PyTorch no longer supports this GPU because it is too old."`, but I IGNORED it following [this thread](https://discuss.pytorch.org/t/last-version-to-support-cuda-capability-3-0/13869).
+
+    When verifying the installation, I got the error `"RuntimeError: getrf : Lapack library not found in compile time"`. I tried fixing it by installing OpenBLAS:
+    - `git clone https://github.com/xianyi/OpenBLAS.git`
+    - `cd OpenBLAS`
+    - `make NO_AFFINITY=1 USE_OPENMP=1`
+    - `sudo make install`
+
 
 # face_recognition
 
