@@ -89,14 +89,14 @@ def extract_face_frames_and_landmarks_from_video(video_file, using_dlib_or_face_
         os.makedirs(video_frames_dir)
 
     # Make video_faces_combined_dir
+    video_faces_combined_dir = os.path.join(output_dir, "faces_combined", language, actor, video_file_name)
+    video_faces_combined_3D_dir = os.path.join(output_dir, "faces_combined_using_3D_landmarks", language, actor, video_file_name)
+    video_faces_combined_2D_dir = os.path.join(output_dir, "faces_combined_using_2D_landmarks", language, actor, video_file_name)
     if save_with_blackened_mouths_and_polygons:
-        video_faces_combined_dir = os.path.join(output_dir, "faces_combined", language, actor, video_file_name)
         if not os.path.exists(video_faces_combined_dir):
             os.makedirs(video_faces_combined_dir)
-        video_faces_combined_3D_dir = os.path.join(output_dir, "faces_combined_using_3D_landmarks", language, actor, video_file_name)
         if not os.path.exists(video_faces_combined_3D_dir):
             os.makedirs(video_faces_combined_3D_dir)
-        video_faces_combined_2D_dir = os.path.join(output_dir, "faces_combined_using_2D_landmarks", language, actor, video_file_name)
         if not os.path.exists(video_faces_combined_2D_dir):
             os.makedirs(video_faces_combined_2D_dir)
 
