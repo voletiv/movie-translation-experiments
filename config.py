@@ -31,8 +31,8 @@ class MovieTranslationConfig():
 
     # To use 'dlib' or 'face_alignment' for landmark detection
     # Check https://github.com/1adrianb/face-alignment for 'face_alignment' installation instructions
-    # USING_DLIB_OR_FACE_ALIGNMENT = 'face_alignment'
-    USING_DLIB_OR_FACE_ALIGNMENT = 'dlib'
+    USING_DLIB_OR_FACE_ALIGNMENT = 'face_alignment'
+    # USING_DLIB_OR_FACE_ALIGNMENT = 'dlib'
     ENABLE_CUDA = True
 
 
