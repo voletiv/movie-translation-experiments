@@ -16,6 +16,10 @@ from skimage.transform import resize
 
 import morph_video_config
 
+# Ignore all warnings
+import warnings
+warnings.filterwarnings("ignore")
+
 
 ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '../'))
 sys.path.append(ROOT_DIR)
@@ -490,6 +494,9 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
                                        target_video_landmarks_file=None, save_making=True, save_generated_video=True, stabilize_landmarks=False,
                                        replace_closed_mouth=False, voice_activity_threshold=0.6, lm_prepend_time_in_ms=200,
                                        constant_face=False, ffmpeg_overwrite=False, verbose=False):
+
+    # If constant_face, update output_video_name
+    output_video_name = os.splitext(output_video_name)[0] + "_constant_face" + os.splitext(output_video_name)[1]
 
     # Generator model input shape
     _, generator_model_input_rows, generator_model_input_cols, _ = generator_model.layers[0].input_shape
