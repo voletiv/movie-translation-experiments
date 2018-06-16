@@ -470,7 +470,7 @@ def transform_landmarks_by_mouth_centroid_and_memorize_scale_x(source_lip_landma
 def tmp_morph_video_with_new_lip_landmarks(generator_model, target_video_file, target_audio_file, lip_landmarks_mat_file, output_video_name,
                                            target_video_landmarks_file=None, save_making=True, save_generated_video=True, stabilize_landmarks=False,
                                            replace_closed_mouth=False, voice_activity_threshold=0.6, lm_prepend_time_in_ms=200,
-                                           constant_face, ffmpeg_overwrite=False, verbose=False):
+                                           constant_face=False, ffmpeg_overwrite=False, verbose=False):
 
     # Read predicted lip landmarks    
     mat = loadmat(lip_landmarks_mat_file)
