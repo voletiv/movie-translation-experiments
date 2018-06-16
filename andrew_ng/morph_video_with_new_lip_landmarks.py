@@ -459,7 +459,8 @@ def transform_landmarks_by_mouth_centroid_and_memorize_scale_x(source_lip_landma
     # Scale the source centred landmarks
     # mouth_centred_source = mouth_centred_source * scale_x
     mouth_centred_source[:, 0] = mouth_centred_source[:, 0] * scale_x
-    mouth_centred_source[:, 1] = mouth_centred_source[:, 1] * scale_x * 1.4
+    mouth_centred_source[:12, 1] = mouth_centred_source[:12, 1] * scale_x * 1.4
+    mouth_centred_source[12:, 1] = mouth_centred_source[12:, 1] * scale_x * 1.2
 
     # Centre it to the target centre
     new_mouth_landmarks = mouth_centred_source + mouth_centroid_target
@@ -600,10 +601,10 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
 
         # Tx source lip landmarks to good target video position, etc.
         target_lip_landmarks_in_frame = np.array(landmarks_in_face_square_expanded_resized[48:68])
-        target_lip_landmarks_tx_from_source, M = affine_transform_landmarks(source_lip_landmarks_in_frame, target_lip_landmarks_in_frame, fullAffine=False, prev_M=M)
+        # target_lip_landmarks_tx_from_source, M = affine_transform_landmarks(source_lip_landmarks_in_frame, target_lip_landmarks_in_frame, fullAffine=False, prev_M=M)
         # target_lip_landmarks_tx_from_source = transform_landmarks_by_upper_lips(source_lip_landmarks_in_frame, target_lip_landmarks_in_frame)
         # target_lip_landmarks_tx_from_source = transform_landmarks_by_mouth_centroid_and_scale_x(source_lip_landmarks_in_frame, target_lip_landmarks_in_frame)
-        # target_lip_landmarks_tx_from_source, scale_x = transform_landmarks_by_mouth_centroid_and_memorize_scale_x(source_lip_landmarks_in_frame, target_lip_landmarks_in_frame, scale_x)
+        target_lip_landmarks_tx_from_source, scale_x = transform_landmarks_by_mouth_centroid_and_memorize_scale_x(source_lip_landmarks_in_frame, target_lip_landmarks_in_frame, scale_x)
 
         # Make face with black mouth polygon
         face_with_bmp = utils.make_black_mouth_and_lips_polygons(face_square_expanded_resized, target_lip_landmarks_tx_from_source)
