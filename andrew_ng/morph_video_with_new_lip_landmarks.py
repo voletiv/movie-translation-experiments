@@ -496,7 +496,7 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
                                        constant_face=False, ffmpeg_overwrite=False, verbose=False):
 
     # If constant_face, update output_video_name
-    output_video_name = os.splitext(output_video_name)[0] + "_constant_face" + os.splitext(output_video_name)[1]
+    output_video_name = os.path.splitext(output_video_name)[0] + "_constant_face" + os.path.splitext(output_video_name)[1]
 
     # Generator model input shape
     _, generator_model_input_rows, generator_model_input_cols, _ = generator_model.layers[0].input_shape
