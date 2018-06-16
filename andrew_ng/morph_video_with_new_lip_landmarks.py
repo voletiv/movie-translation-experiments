@@ -459,8 +459,8 @@ def transform_landmarks_by_mouth_centroid_and_memorize_scale_x(source_lip_landma
     # Scale the source centred landmarks
     # mouth_centred_source = mouth_centred_source * scale_x
     mouth_centred_source[:, 0] = mouth_centred_source[:, 0] * scale_x
-    mouth_centred_source[:12, 1] = mouth_centred_source[:12, 1] * scale_x * 1.4
-    mouth_centred_source[12:, 1] = mouth_centred_source[12:, 1] * scale_x * 1.2
+    mouth_centred_source[:12, 1] = mouth_centred_source[:12, 1] * scale_x * 1.2
+    mouth_centred_source[12:, 1] = mouth_centred_source[12:, 1] * scale_x * 1.4
 
     # Centre it to the target centre
     new_mouth_landmarks = mouth_centred_source + mouth_centroid_target
