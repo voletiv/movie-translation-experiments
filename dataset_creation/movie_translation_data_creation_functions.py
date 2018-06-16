@@ -2,7 +2,6 @@ import csv
 import cv2
 import glob
 import imageio
-import matplotlib.pyplot as plt
 import numpy as np
 import os
 import subprocess
@@ -380,6 +379,7 @@ def write_combined_frames_with_blackened_mouths_and_mouth_polygons(language, act
 
 
 def read_log_and_plot_graphs(log_txt_path):
+    import matplotlib.pyplot as plt
     log_lines = []
     with open(log_txt_path, 'r') as f:
         for line in f:
