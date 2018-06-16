@@ -470,7 +470,7 @@ def transform_landmarks_by_mouth_centroid_and_memorize_scale_x(source_lip_landma
 def tmp_morph_video_with_new_lip_landmarks(generator_model, target_video_file, target_audio_file, lip_landmarks_mat_file, output_video_name,
                                            target_video_landmarks_file=None, save_making=True, save_generated_video=True, stabilize_landmarks=False,
                                            replace_closed_mouth=False, voice_activity_threshold=0.6, lm_prepend_time_in_ms=200,
-                                           ffmpeg_overwrite=False, verbose=False):
+                                           constant_face, ffmpeg_overwrite=False, verbose=False):
 
     # Read predicted lip landmarks    
     mat = loadmat(lip_landmarks_mat_file)
@@ -482,13 +482,13 @@ def tmp_morph_video_with_new_lip_landmarks(generator_model, target_video_file, t
                                        target_video_landmarks_file=target_video_landmarks_file, save_making=save_making,
                                        save_generated_video=save_generated_video, stabilize_landmarks=stabilize_landmarks,
                                        replace_closed_mouth=replace_closed_mouth, voice_activity_threshold=voice_activity_threshold, lm_prepend_time_in_ms=lm_prepend_time_in_ms,
-                                       ffmpeg_overwrite=ffmpeg_overwrite, verbose=verbose)
+                                       constant_face=constant_face, ffmpeg_overwrite=ffmpeg_overwrite, verbose=verbose)
 
 
 def morph_video_with_new_lip_landmarks(generator_model, target_video_file, target_audio_file, new_lip_landmarks, output_video_name,
                                        target_video_landmarks_file=None, save_making=True, save_generated_video=True, stabilize_landmarks=False,
                                        replace_closed_mouth=False, voice_activity_threshold=0.6, lm_prepend_time_in_ms=200,
-                                       ffmpeg_overwrite=False, verbose=False):
+                                       constant_face=False, ffmpeg_overwrite=False, verbose=False):
 
     # Generator model input shape
     _, generator_model_input_rows, generator_model_input_cols, _ = generator_model.layers[0].input_shape
@@ -533,15 +533,29 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
     if verbose:
         print("Reading target video frames...")
 
-    for f, frame in enumerate(target_video_reader):
-        target_video_frames.append(frame)
-        if f+1 == num_of_frames:
-            break
+    # If contant_face, read only 20 frames and choose the last
+    if constant_face:
+        for f, frame in enumerate(target_video_reader):
+            target_video_frames.append(frame)
+            if f == 20:
+                break
+
+        target_video_frames = np.tile(target_video_frames[-1], (min(num_of_frames, len(target_video_reader)), 1, 1, 1))
+    
+    else:
+        for f, frame in enumerate(target_video_reader):
+            target_video_frames.append(frame)
+            if f+1 == num_of_frames:
+                break
 
     # Read target_video_file's frame landmarks
     target_all_landmarks_in_frames, frames_with_no_landmarks = read_video_landmarks(video_file_name=target_video_file, read_from_landmarks_file=True, video_landmarks_file=target_video_landmarks_file,
                                                                                     landmarks_type='frames', required_number=num_of_frames, video_fps=target_video_fps,
                                                                                     stabilize_landmarks=stabilize_landmarks, verbose=verbose)
+
+    # If constant_face, choose the landmarks of the only face considered
+    if constant_face:
+        target_all_landmarks_in_frames = np.tile(target_all_landmarks_in_frames[20], (len(target_all_landmarks_in_frames), 1, 1))
 
     # Make new images of faces with black mouth polygons
     face_rect_in_frames = []
@@ -549,7 +563,11 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
     faces_original = []
     faces_with_black_mouth_polygons = []
     making_frames = []
+
+    # Affine Tx from source to target
     M = np.zeros((2, 3))
+    # First scale_y; in case transform_landmarks_by_mouth_centroid_and_scale_x_memorize_scale_y is being used
+    scale_x = None
 
     """
     target_video_frames = np.array([target_video_frames[93]] * len(target_video_frames))
@@ -560,9 +578,6 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
 
     if verbose:
         print("Making new images of faces with black mouth polygons...")
-
-    # First scale_y; in case transform_landmarks_by_mouth_centroid_and_scale_x_memorize_scale_y is being used
-    scale_x = None
 
     for (target_frame, target_all_landmarks_in_frame, source_lip_landmarks_in_frame, use_original_frame) in tqdm.tqdm(zip(target_video_frames,
                                                                                                                           target_all_landmarks_in_frames,
@@ -701,6 +716,7 @@ if __name__ == '__main__':
     parser.add_argument('--replace_closed_mouth', '-r', action="store_true")
     parser.add_argument('--voice_activity_threshold', '-vadthresh', type=float, default=0.6, help="threshold [0 - 1] for voice activity detection; energy > thresh => voice")
     parser.add_argument('--lm_prepend_time_in_ms', '-lmptime', type=float, default=200, help="Time (in ms) to add landmarks at start due to delay in TIME-DELAYED LSTM")
+    parser.add_argument('--constant_face', '-cf', action="store_true")
     parser.add_argument('--verbose', '-v', action="store_true")
     parser.add_argument('--ffmpeg_overwrite', '-y', action="store_true")
     args = parser.parse_args()
@@ -732,6 +748,7 @@ if __name__ == '__main__':
                                                replace_closed_mouth=args.replace_closed_mouth,
                                                voice_activity_threshold=args.voice_activity_threshold,
                                                lm_prepend_time_in_ms=args.lm_prepend_time_in_ms,
+                                               constant_face=args.constant_face,
                                                ffmpeg_overwrite=args.ffmpeg_overwrite,
                                                verbose=args.verbose)
 
