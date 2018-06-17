@@ -160,8 +160,8 @@ def extract_face_frames_and_landmarks_from_video(video_file, using_dlib_or_face_
             if frame_number < skip_frames:
                 continue
 
-            # Till frame_number+1 % 10 == 0, only save the frames
-            if (frame_number + 1) % check_for_face_every_nth_frame != 0:
+            # Till frame_number+1 % 10 == 0 (and if it's not the last batch), only save the frames
+            if (frame_number + 1) % check_for_face_every_nth_frame != 0 and (frame_number + 1) != len(video_frames):
                 batch_frame_numbers.append(frame_number)
                 batch_frames.append(frame)
                 continue

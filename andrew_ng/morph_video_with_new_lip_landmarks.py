@@ -548,7 +548,7 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
             if f == 20:
                 break
 
-        target_video_frames = np.tile(target_video_frames[-1], (min(num_of_frames, len(target_video_reader)), 1, 1, 1))
+        target_video_frames = np.tile(target_video_frames[-1], (num_of_frames, 1, 1, 1))
     
     else:
         for f, frame in enumerate(target_video_reader):
