@@ -574,13 +574,15 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
     # Identity face
     if use_identity:
         # 1) Take the middle frame as the identity frame
-        identity_frame_number = len(target_video_frames)//2
+        identity_frame_number = len(target_all_landmarks_in_frames)//2
         # If the middle frame has no landmarks, increment frame number until you find a frame with lm
         while frames_with_no_landmarks[identity_frame_number] == 0 and identity_frame_number >= 0:
+            print("Searching for frame with landmarks in lesser half...")
             identity_frame_number -= 1
         if identity_frame_number == -1:
-            identity_frame_number = len(target_video_frames)//2
+            identity_frame_number = len(target_all_landmarks_in_frames)//2
             while frames_with_no_landmarks[identity_frame_number] == 0:
+                print("Searching for frame with landmarks in greater half...")
                 identity_frame_number += 1
         identity_frame = target_video_frames[identity_frame_number]
         identity_frame_landmarks = target_all_landmarks_in_frames[identity_frame_number]
