@@ -577,7 +577,7 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
         identity_frame_number = len(target_video_frames)//2
         # If the middle frame has no landmarks, increment frame number until you find a frame with lm
         while frames_with_no_landmarks[identity_frame_number] == 0 and identity_frame_number >= 0:
-            identity_frame_number += 1
+            identity_frame_number -= 1
         if identity_frame_number == -1:
             identity_frame_number = len(target_video_frames)//2
             while frames_with_no_landmarks[identity_frame_number] == 0:
