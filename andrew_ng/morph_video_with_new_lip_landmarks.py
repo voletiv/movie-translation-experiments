@@ -515,15 +515,6 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
     if verbose:
         print("target_video_length:", len(target_video_reader), "; target_video_fps:", target_video_fps)
 
-    # Note middle image for identity
-    if use_identity:
-        for f, frame in target_video_reader:
-            if f == len(target_video_reader)//2:
-                break
-
-        identity_frame = frame
-        target_video_reader = imageio.get_reader(target_video_file)
-
     # Note source landmarks
     source_lip_landmarks = new_lip_landmarks
 
