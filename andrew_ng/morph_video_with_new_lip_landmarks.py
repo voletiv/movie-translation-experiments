@@ -100,6 +100,7 @@ def stabilize(landmarks):
 def read_video_landmarks(video_frames=None, # Either read landmarks for each frame
                          read_from_landmarks_file=True, video_landmarks_file=None, # Or, read from landmarks_file (if video_landmarks_file is not None)
                          video_file_name=None, landmarks_type='frames', video_fps=morph_video_config.ANDREW_NG_VIDEO_FPS, # Or, read from appropriate landmarks_file of video_file_name (if video_landmarks_file is None, and video_file_name is not None)
+                         using_dlib_or_face_alignment='face_alignment',
                          dataset_dir=morph_video_config.dataset_dir, person=morph_video_config.person,
                          required_number=None, stabilize_landmarks=False, verbose=False):
     """
@@ -114,6 +115,7 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
 
     frames_with_no_landmarks = []
 
+    # If read_from_landmarks_file, instead of detecting for every frame
     if read_from_landmarks_file:
 
         if verbose:
@@ -238,6 +240,7 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
         # Save only landmarks (without frame number)
         landmarks = [lms[1:] for lms in landmarks]
 
+    # Else, detect landmarks using dlib
     else:
 
         if video_frames == None:
@@ -245,11 +248,19 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
 
         print("read_video_frame_landmarks: detecting faces and predicting landmarks in every frame...")
 
-        dlib_face_detector, dlib_shape_predictor = utils.load_dlib_detector_and_predictor(verbose=verbose)
+        if using_dlib_or_face_alignment == 'dlib':
+            dlib_face_detector, dlib_shape_predictor = utils.load_dlib_detector_and_predictor(verbose=verbose)
+        elif using_dlib_or_face_alignment == 'face_alignment':
+            face_alignment_3D_object = load_face_alignment_object(d='3D', enable_cuda=True)
+        else:
+            raise ValueError("read_video_frame_landmarks:'using_dlib_or_face_alignment' can only be 'dlib' or 'face_alignment', got " + str(using_dlib_or_face_alignment))
 
         landmarks = []
         for f, frame in tqdm.tqdm(video_frames):
-            landmarks_in_frame = utils.get_landmarks_using_dlib_detector_and_predictor(frame, dlib_face_detector, dlib_shape_predictor)
+            if using_dlib_or_face_alignment == 'dlib':
+                landmarks_in_frame = utils.get_landmarks_using_dlib_detector_and_predictor(frame, dlib_face_detector, dlib_shape_predictor)
+            elif using_dlib_or_face_alignment == 'face_alignment':
+                landmarks_in_frame = utils.get_landmarks_using_FaceAlignment(frame, face_alignment_3D_object)
             if landmarks_in_frame is not None:
                 landmarks.append(landmarks_in_frame[1:])
                 frames_with_no_landmarks.append(0)
@@ -474,6 +485,7 @@ def transform_landmarks_by_mouth_centroid_and_memorize_scale_x(source_lip_landma
 
 def tmp_morph_video_with_new_lip_landmarks(generator_model, target_video_file, target_audio_file, lip_landmarks_mat_file, lip_landmarks_fps, output_video_name,
                                            target_video_landmarks_file=None, save_making=True, save_generated_video=True, stabilize_landmarks=False,
+                                           detect_landmarks_in_video=False, using_dlib_or_face_alignment='face_alignment',
                                            replace_closed_mouth=False, voice_activity_threshold=0.6, lm_prepend_time_in_ms=200,
                                            constant_face=False, use_identity=False, ffmpeg_overwrite=False, verbose=False):
 
@@ -484,15 +496,16 @@ def tmp_morph_video_with_new_lip_landmarks(generator_model, target_video_file, t
     # Call the actual function
     morph_video_with_new_lip_landmarks(generator_model=generator_model, target_video_file=target_video_file,
                                        target_audio_file=target_audio_file, new_lip_landmarks=new_lip_landmarks, lip_landmarks_fps=lip_landmarks_fps,
-                                       output_video_name=output_video_name,
-                                       target_video_landmarks_file=target_video_landmarks_file, save_making=save_making,
+                                       output_video_name=output_video_name, target_video_landmarks_file=target_video_landmarks_file, save_making=save_making,
                                        save_generated_video=save_generated_video, stabilize_landmarks=stabilize_landmarks,
+                                       detect_landmarks_in_video=detect_landmarks_in_video, using_dlib_or_face_alignment=using_dlib_or_face_alignment,
                                        replace_closed_mouth=replace_closed_mouth, voice_activity_threshold=voice_activity_threshold, lm_prepend_time_in_ms=lm_prepend_time_in_ms,
                                        constant_face=constant_face, use_identity=use_identity, ffmpeg_overwrite=ffmpeg_overwrite, verbose=verbose)
 
 
 def morph_video_with_new_lip_landmarks(generator_model, target_video_file, target_audio_file, new_lip_landmarks, lip_landmarks_fps=morph_video_config.generated_lip_landmarks_fps,
                                        output_video_name=None, target_video_landmarks_file=None, save_making=True, save_generated_video=True, stabilize_landmarks=False,
+                                       detect_landmarks_in_video=False, using_dlib_or_face_alignment='face_alignment',
                                        replace_closed_mouth=False, voice_activity_threshold=0.6, lm_prepend_time_in_ms=200,
                                        constant_face=False, use_identity=False, ffmpeg_overwrite=False, verbose=False):
 
@@ -567,7 +580,9 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
                 break
 
     # Read target_video_file's frame landmarks
-    target_all_landmarks_in_frames, frames_with_no_landmarks = read_video_landmarks(video_file_name=target_video_file, read_from_landmarks_file=True, video_landmarks_file=target_video_landmarks_file,
+    target_all_landmarks_in_frames, frames_with_no_landmarks = read_video_landmarks(video_file_name=target_video_file,
+                                                                                    read_from_landmarks_file=(not detect_landmarks_in_video), using_dlib_or_face_alignment=using_dlib_or_face_alignment,
+                                                                                    video_landmarks_file=target_video_landmarks_file,
                                                                                     landmarks_type='frames', required_number=num_of_frames, video_fps=target_video_fps,
                                                                                     stabilize_landmarks=stabilize_landmarks, verbose=verbose)
 
@@ -751,6 +766,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Morph lips in input video with target lip landmarks')
     parser.add_argument('target_video_file', type=str, help="target video (.mp4); eg. /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/CV_01_C4W1L01_000003_to_000045/CV_01_C4W1L01_000003_to_000045.mp4")
     parser.add_argument('--target_audio_file', '-a', type=str, default=None, help="target audio; eg. /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/Obama/ouput_new5.mp3")
+    parser.add_argument('--detect_landmarks_in_video', '-dlm', action="store_true")
+    parser.add_argument('--using_dlib_or_face_alignment', type=str, choices=["dlib", "face_alignment"], default="face_alignment", help="Choose dlib or face_alignment to detect landmarks, IF detect_landmarks_in_video is True")
     parser.add_argument('--target_video_landmarks_file', '-t', type=str, default=None, help="landmarks file of target video; eg. /shared/fusor/home/voleti.vikram/ANDREW_NG_CLIPS/landmarks_in_frames_person/CV_01_C4W1L01_000003_to_000045/")
     parser.add_argument('--lip_landmarks_mat_file', '-l', type=str, help="Predicted and target lip landmarks; eg. /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/generated_hindi_landmarks/output5/generated_lip_landmarks.mat")
     parser.add_argument('--lip_landmarks_fps', '-lfps', type=float, default=25, help="FPS of lip landmarks generated")
@@ -794,6 +811,8 @@ if __name__ == '__main__':
                                                save_making=args.save_making,
                                                save_generated_video=args.save_generated_video,
                                                stabilize_landmarks=args.stabilize_landmarks,
+                                               detect_landmarks_in_video=args.landmarks_in_video,
+                                               using_dlib_or_face_alignment=args.using_dlib_or_face_alignment,
                                                replace_closed_mouth=args.replace_closed_mouth,
                                                voice_activity_threshold=args.voice_activity_threshold,
                                                lm_prepend_time_in_ms=args.lm_prepend_time_in_ms,
