@@ -12,9 +12,10 @@ import time
 import tqdm
 
 from scipy import interpolate
-from scipy.io import loadmat
+from scipy.io import loadmat, savemat
 from scipy.signal import medfilt
 from skimage.transform import resize
+from sklearn.neighbors import NearestNeighbors
 
 import dynamic_video_maker
 import morph_video_config
@@ -666,13 +667,14 @@ def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, 
 
     # If dynamically sync lips
     if dyn_sync_lip_cluster_frames:
+        print("Dynamically syncing video frames acc to lip clusters...")
         target_all_landmarks_in_frames_orig = target_all_landmarks_in_frames
         target_video_frames, \
             target_all_landmarks_in_frames = get_dynamic_video(target_video_frames, target_all_landmarks_in_frames,
                                                                source_lip_landmarks, lip_landmarks_fps,
                                                                target_audio_file,
                                                                save_output_video=True,
-                                                               output_filename=os.path.join(os.path.dirname(output_video_name), 'out_with_jaw_body.mp4'))
+                                                               output_file_name=os.path.join(os.path.dirname(output_video_name), 'out_with_jaw_body.mp4'))
         frames_with_no_landmarks = [0] * len(target_video_frames)
 
 
@@ -779,7 +781,7 @@ def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, 
 
     # Save landmarks in .mat file
     if dyn_sync_lip_cluster_frames:
-        scipy.io.savemat(os.path.join(os.path.dirname(output_video_name), 'landmarks.mat'), {'dst_lm': target_all_landmarks_in_frames_orig, 'src_lm': landmarks_in_faces})
+        savemat(os.path.join(os.path.dirname(output_video_name), 'landmarks.mat'), {'dst_lm': target_all_landmarks_in_frames_orig, 'src_lm': landmarks_in_faces})
 
     # GENERATE FACES USING PIX2PIX
     if save_generated_video:
