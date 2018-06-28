@@ -519,7 +519,7 @@ def read_landmarks_within_video(lm_file='/home/voleti.vikram/MOVIE_TRANSLATION/l
 
 def convert_mat_landmarks_list_to_txt_file(landmarks_mat_file, key='lm', output_file_name='a.txt'):
     from scipy.io import loadmat
-    landmarks = loadmat(landmarks_mat_file)[key]
+    landmarks = np.array(loadmat(landmarks_mat_file)[key], dtype='int')
     landmarks_in_frames_list = []
     for frame_number, landmarks_in_frame in enumerate(landmarks):
         video_frame_name = "_frame_{0:05d}.png".format(frame_number)

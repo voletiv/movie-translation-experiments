@@ -292,7 +292,7 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
 
     # Convert to 2D float array
     landmarks = np.array(landmarks).astype('float')
-    landmarks = landmarks[:, :, 2]
+    landmarks = landmarks[:, :, :2]
 
     # Use medan filter to smoothen the output
     # landmarks = medfilt(landmarks, (13, 1, 1))
