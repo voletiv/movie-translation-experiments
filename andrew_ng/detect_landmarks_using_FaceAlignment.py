@@ -28,6 +28,9 @@ def detect_landmarks(video_frames_npy_file):
                 landmarks.append(landmarks[-1])
             else:
                 landmarks.append(np.zeros((68, 3)))
+
+    landmarks = np.array(landmarks, dtype='int')
+
     if np.all(landmarks[0] == np.zeros((68, 3))):
         for l, lm in enumerate(landmarks):
             if not np.all(lm == np.zeros((68, 3))):

@@ -680,7 +680,6 @@ def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, 
                                                                target_audio_file,
                                                                save_output_video=True, output_file_name=os.path.join(os.path.dirname(output_video_name), 'out_with_jaw_body.mp4'),
                                                                ffmpeg_overwrite=ffmpeg_overwrite, verbose=verbose)
-        frames_with_no_landmarks = [0] * len(target_video_frames)
 
     # If constant_face, choose the landmarks of the only face considered
     if constant_face:
