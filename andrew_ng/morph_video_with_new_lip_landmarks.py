@@ -246,12 +246,12 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
         if video_frames == None:
             raise ValueError("ERROR: read_video_frame_landmarks: video_frames needs to be given, since read_from_landmarks_file=False!")
 
-        print("read_video_frame_landmarks: detecting faces and predicting landmarks in every frame...")
+        print("read_video_frame_landmarks: detecting faces and predicting landmarks in every frame using " + str(using_dlib_or_face_alignment) + "...")
 
         if using_dlib_or_face_alignment == 'dlib':
             dlib_face_detector, dlib_shape_predictor = utils.load_dlib_detector_and_predictor(verbose=verbose)
         elif using_dlib_or_face_alignment == 'face_alignment':
-            face_alignment_3D_object = load_face_alignment_object(d='3D', enable_cuda=True)
+            face_alignment_3D_object = utils.load_face_alignment_object(d='3D', enable_cuda=True)
         else:
             raise ValueError("read_video_frame_landmarks:'using_dlib_or_face_alignment' can only be 'dlib' or 'face_alignment', got " + str(using_dlib_or_face_alignment))
 
@@ -483,7 +483,7 @@ def transform_landmarks_by_mouth_centroid_and_memorize_scale_x(source_lip_landma
     return np.round(new_mouth_landmarks).astype('int'), scale_x
 
 
-def tmp_morph_video_with_new_lip_landmarks(generator_model, target_video_file, target_audio_file, lip_landmarks_mat_file, lip_landmarks_fps, output_video_name,
+def tmp_morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, target_audio_file, lip_landmarks_mat_file, lip_landmarks_fps, output_video_name,
                                            target_video_landmarks_file=None, save_making=True, save_generated_video=True, stabilize_landmarks=False,
                                            detect_landmarks_in_video=False, using_dlib_or_face_alignment='face_alignment',
                                            replace_closed_mouth=False, voice_activity_threshold=0.6, lm_prepend_time_in_ms=200,
@@ -494,7 +494,7 @@ def tmp_morph_video_with_new_lip_landmarks(generator_model, target_video_file, t
     new_lip_landmarks = mat['y_pred']
 
     # Call the actual function
-    morph_video_with_new_lip_landmarks(generator_model=generator_model, target_video_file=target_video_file,
+    morph_video_with_new_lip_landmarks(generator_model_name=generator_model_name, target_video_file=target_video_file,
                                        target_audio_file=target_audio_file, new_lip_landmarks=new_lip_landmarks, lip_landmarks_fps=lip_landmarks_fps,
                                        output_video_name=output_video_name, target_video_landmarks_file=target_video_landmarks_file, save_making=save_making,
                                        save_generated_video=save_generated_video, stabilize_landmarks=stabilize_landmarks,
@@ -503,7 +503,7 @@ def tmp_morph_video_with_new_lip_landmarks(generator_model, target_video_file, t
                                        constant_face=constant_face, use_identity=use_identity, ffmpeg_overwrite=ffmpeg_overwrite, verbose=verbose)
 
 
-def morph_video_with_new_lip_landmarks(generator_model, target_video_file, target_audio_file, new_lip_landmarks, lip_landmarks_fps=morph_video_config.generated_lip_landmarks_fps,
+def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, target_audio_file, new_lip_landmarks, lip_landmarks_fps=morph_video_config.generated_lip_landmarks_fps,
                                        output_video_name=None, target_video_landmarks_file=None, save_making=True, save_generated_video=True, stabilize_landmarks=False,
                                        detect_landmarks_in_video=False, using_dlib_or_face_alignment='face_alignment',
                                        replace_closed_mouth=False, voice_activity_threshold=0.6, lm_prepend_time_in_ms=200,
@@ -514,17 +514,6 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
 
     # If use_identity, update output_video_name
     output_video_name = os.path.splitext(output_video_name)[0] + "_withIdentity" + os.path.splitext(output_video_name)[1]
-
-    # Generator model input shape
-    _, generator_model_input_rows, generator_model_input_cols, _ = generator_model.layers[0].input_shape
-    if verbose:
-        print("generator_model input shape:", (generator_model_input_rows, generator_model_input_cols))
-
-    if use_identity:
-        generator_model_input_cols = generator_model_input_cols // 2
-
-    assert (generator_model_input_rows == generator_model_input_cols), "Please ensure gen_model has correct input size! Found " + \
-        str(generator_model_input_rows) + "x" + str(generator_model_input_cols) + ". use_identity=" + str(use_identity)
 
     # Read target video
     target_video_reader = imageio.get_reader(target_video_file)
@@ -580,7 +569,7 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
                 break
 
     # Read target_video_file's frame landmarks
-    target_all_landmarks_in_frames, frames_with_no_landmarks = read_video_landmarks(video_file_name=target_video_file,
+    target_all_landmarks_in_frames, frames_with_no_landmarks = read_video_landmarks(video_frames=target_video_frames, video_file_name=target_video_file,
                                                                                     read_from_landmarks_file=(not detect_landmarks_in_video), using_dlib_or_face_alignment=using_dlib_or_face_alignment,
                                                                                     video_landmarks_file=target_video_landmarks_file,
                                                                                     landmarks_type='frames', required_number=num_of_frames, video_fps=target_video_fps,
@@ -589,6 +578,21 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
     # If constant_face, choose the landmarks of the only face considered
     if constant_face:
         target_all_landmarks_in_frames = np.tile(target_all_landmarks_in_frames[20], (len(target_all_landmarks_in_frames), 1, 1))
+
+    # LOAD GENERATOR
+    # Generator model
+    generator_model = utils.load_generator(generator_model_name, verbose=verbose)
+
+    # Generator model input shape
+    _, generator_model_input_rows, generator_model_input_cols, _ = generator_model.layers[0].input_shape
+    if verbose:
+        print("generator_model input shape:", (generator_model_input_rows, generator_model_input_cols))
+
+    if use_identity:
+        generator_model_input_cols = generator_model_input_cols // 2
+
+    assert (generator_model_input_rows == generator_model_input_cols), "Please ensure gen_model has correct input size! Found " + \
+        str(generator_model_input_rows) + "x" + str(generator_model_input_cols) + ". use_identity=" + str(use_identity)
 
     # Identity face
     if use_identity:
@@ -670,6 +674,7 @@ def morph_video_with_new_lip_landmarks(generator_model, target_video_file, targe
             face_with_bmp = np.concatenate((face_with_bmp, identity_face), axis=1)
         faces_with_black_mouth_polygons.append(face_with_bmp)
 
+    # GENERATE FACES USING PIX2PIX
     if save_generated_video:
 
         # Predict new faces using generator
@@ -797,13 +802,10 @@ if __name__ == '__main__':
     if args.verbose:
         print(args)
 
-    # Generator
-    generator_model = utils.load_generator(args.generator_model_name, verbose=args.verbose)
-
     try:
 
         # Run
-        tmp_morph_video_with_new_lip_landmarks(generator_model,
+        tmp_morph_video_with_new_lip_landmarks(args.generator_model_name,
                                                args.target_video_file, args.target_audio_file,
                                                args.lip_landmarks_mat_file, args.lip_landmarks_fps,
                                                args.output_video_name,
@@ -811,7 +813,7 @@ if __name__ == '__main__':
                                                save_making=args.save_making,
                                                save_generated_video=args.save_generated_video,
                                                stabilize_landmarks=args.stabilize_landmarks,
-                                               detect_landmarks_in_video=args.landmarks_in_video,
+                                               detect_landmarks_in_video=args.detect_landmarks_in_video,
                                                using_dlib_or_face_alignment=args.using_dlib_or_face_alignment,
                                                replace_closed_mouth=args.replace_closed_mouth,
                                                voice_activity_threshold=args.voice_activity_threshold,
