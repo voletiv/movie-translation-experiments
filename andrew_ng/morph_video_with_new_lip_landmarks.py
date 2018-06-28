@@ -5,6 +5,7 @@ import imageio
 import numpy as np
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -280,7 +281,7 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
             landmarks_in_frames_list = []
             for frame_number, (landmarks_in_frame, no_landmarks_in_frame) in enumerate(zip(landmarks, frames_with_no_landmarks)):
                 if not no_landmarks_in_frame:
-                    video_frame_name = video_file_name + "_frame_{0:05d}.png".format(frame_number)
+                    video_frame_name = os.path.splitext(os.path.basename(video_file_name))[0] + "_frame_{0:05d}.png".format(frame_number)
                     landmarks_in_frames_list.append([video_frame_name] + [list(l) for l in landmarks_in_frame])
             # Save landmarks
             utils.write_landmarks_list_as_txt("/tmp/landmarks_in_frames.txt", landmarks_in_frames_list)
@@ -599,7 +600,7 @@ def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, 
 
     # If detect_landmarks_in_video, move landmarks detected to the right dir
     if detect_landmarks_in_video:    
-        os.rename("/tmp/landmarks_in_frames.txt", os.path.join(os.path.realpath(os.path.dirname(output_video_name)), os.path.splitext(os.path.basename(output_video_name))[0] + "_landmarks_in_frames.txt"))
+        shutil.move("/tmp/landmarks_in_frames.txt", os.path.join(os.path.realpath(os.path.dirname(output_video_name)), os.path.splitext(os.path.basename(output_video_name))[0] + "_landmarks_in_frames.txt"))
 
     # If constant_face, choose the landmarks of the only face considered
     if constant_face:
