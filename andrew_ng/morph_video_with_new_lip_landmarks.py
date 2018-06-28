@@ -74,8 +74,8 @@ def stabilize(landmarks):
 
         top_y = landmarks[i][:, 1].min()
         top_y_prev = new_landmarks[-1][:, 1].min()
-        bottom_y = landmarks[i][48:68, 1].mean()
-        bottom_y_prev = new_landmarks[-1][48:68, 1].mean()
+        bottom_y = landmarks[i][-20:, 1].mean()
+        bottom_y_prev = new_landmarks[-1][-20:, 1].mean()
 
         scale_y = (bottom_y_prev - top_y_prev) / (bottom_y - top_y)
 
@@ -683,7 +683,7 @@ def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, 
         face_original_sizes.append(face_original_size)
 
         # Tx source lip landmarks to good target video position, etc.
-        target_lip_landmarks_in_frame = np.array(landmarks_in_face_square_expanded_resized[48:68])
+        target_lip_landmarks_in_frame = np.array(landmarks_in_face_square_expanded_resized[-20:])
         # target_lip_landmarks_tx_from_source, M = affine_transform_landmarks(source_lip_landmarks_in_frame, target_lip_landmarks_in_frame, fullAffine=False, prev_M=M)
         # target_lip_landmarks_tx_from_source = transform_landmarks_by_upper_lips(source_lip_landmarks_in_frame, target_lip_landmarks_in_frame)
         # target_lip_landmarks_tx_from_source = transform_landmarks_by_mouth_centroid_and_scale_x(source_lip_landmarks_in_frame, target_lip_landmarks_in_frame)
@@ -692,7 +692,7 @@ def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, 
         # Make face with black mouth polygon
         face_with_bmp = utils.make_black_mouth_and_lips_polygons(face_square_expanded_resized, target_lip_landmarks_tx_from_source)
         if save_making:
-            face_with_original_bmp = utils.make_black_mouth_and_lips_polygons(face_square_expanded_resized, landmarks_in_face_square_expanded_resized[48:68])
+            face_with_original_bmp = utils.make_black_mouth_and_lips_polygons(face_square_expanded_resized, landmarks_in_face_square_expanded_resized[-20:])
             making_frame = np.hstack((face_square_expanded_resized, face_with_original_bmp))
             making_frame = np.vstack(( making_frame, np.hstack((np.zeros(face_with_bmp.shape), face_with_bmp)) ))
             making_frames.append(making_frame)

@@ -500,3 +500,29 @@ def get_video_frames_dir(language, actor, number):
     else:
         return frames_dir
 
+
+def read_landmarks_within_video(lm_file='/home/voleti.vikram/MOVIE_TRANSLATION/landmarks/english/andrew_ng_2D_dlib/CV_01.C4W1L01_Computer_Vision_landmarks_in_frames_andrew_ng.txt',
+                                start_time=3, end_time=45, fps=30):
+    lm = utils.read_landmarks_list_from_txt('/home/voleti.vikram/MOVIE_TRANSLATION/landmarks/english/andrew_ng_2D_dlib/CV_01.C4W1L01_Computer_Vision_landmarks_in_frames_andrew_ng.txt')
+    landmarks = []
+    for ll in lm:
+        frame_number = int(os.path.splitext(ll[0])[0].split('frame_')[-1])
+            if frame_number >= end_time*fps:
+                break
+            elif frame_number < start_time*fps:
+                continue
+            else:
+                landmarks.append(ll[1:])
+    # scipy.io.savemat('/tmp/landmarks/ANDREW_NG_CV_01_C4W1L01_000003_to_000045_landmarks_in_frames.mat', mdict={'ypred': lip_landmarks_03_to_45})
+    return np.array(landmarks, dtype='float')
+
+
+def convert_mat_landmarks_list_to_txt_file(landmarks_mat_file, key='lm', output_file_name='a.txt'):
+    from scipy.io import loadmat
+    landmarks = loadmat(landmarks_mat_file)[key]
+    landmarks_in_frames_list = []
+    for frame_number, landmarks_in_frame in enumerate(landmarks):
+        video_frame_name = "_frame_{0:05d}.png".format(frame_number)
+        landmarks_in_frames_list.append([video_frame_name] + [list(l) for l in landmarks_in_frame])
+    write_landmarks_list_as_txt(output_file_name, landmarks_in_frames_list)
+
