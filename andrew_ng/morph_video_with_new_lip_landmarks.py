@@ -597,6 +597,10 @@ def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, 
                                                                                     landmarks_type='frames', required_number=num_of_frames, video_fps=target_video_fps,
                                                                                     stabilize_landmarks=stabilize_landmarks, verbose=verbose)
 
+    # If detect_landmarks_in_video, move landmarks detected to the right dir
+    if detect_landmarks_in_video:    
+        os.rename("/tmp/landmarks_in_frames.txt", os.path.join(os.path.realpath(os.path.dirname(output_video_name)), os.path.splitext(os.path.basename(output_video_name))[0] + "_landmarks_in_frames.txt"))
+
     # If constant_face, choose the landmarks of the only face considered
     if constant_face:
         target_all_landmarks_in_frames = np.tile(target_all_landmarks_in_frames[20], (len(target_all_landmarks_in_frames), 1, 1))
