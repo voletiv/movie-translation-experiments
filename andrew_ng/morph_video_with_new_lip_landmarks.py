@@ -102,7 +102,9 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
                          video_file_name=None, landmarks_type='frames', video_fps=morph_video_config.ANDREW_NG_VIDEO_FPS, # Or, read from appropriate landmarks_file of video_file_name (if video_landmarks_file is None, and video_file_name is not None)
                          using_dlib_or_face_alignment='face_alignment',
                          dataset_dir=morph_video_config.dataset_dir, person=morph_video_config.person,
-                         required_number=None, stabilize_landmarks=False, verbose=False):
+                         required_number=None, stabilize_landmarks=False,
+                         save_landmarks=False, landmarks_file_name="blahblah.txt",
+                         verbose=False):
     """
     Read landmarks
     1) from files with landmarks in full frames like /shared/fusor/home/voleti.vikram/ANDREW_NG/landmarks_in_frames_person/CV_01.C4W1L01_Computer_Vision_in_landmarks_frames_andrew_ng.txt,
@@ -250,26 +252,36 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
 
         if using_dlib_or_face_alignment == 'dlib':
             dlib_face_detector, dlib_shape_predictor = utils.load_dlib_detector_and_predictor(verbose=verbose)
+            landmarks = []
+            for f, frame in tqdm.tqdm(enumerate(video_frames), total=len(video_frames)):
+                if using_dlib_or_face_alignment == 'dlib':
+                    landmarks_in_frame = utils.get_landmarks_using_dlib_detector_and_predictor(frame, dlib_face_detector, dlib_shape_predictor)
+                if landmarks_in_frame is not None:
+                    landmarks.append(landmarks_in_frame[:, :2])
+                    frames_with_no_landmarks.append(0)
+                else:
+                    frames_with_no_landmarks.append(1)
+                    if f > 0:
+                        landmarks.append(landmarks[-1])
+                    else:
+                        landmarks.append(np.zeros((68, 2)))
+
         elif using_dlib_or_face_alignment == 'face_alignment':
-            face_alignment_3D_object = utils.load_face_alignment_object(d='3D', enable_cuda=True)
+            tmp_video_frames_npy_file = '/tmp/video_frames.npy'
+            np.save(tmp_video_frames_npy_file, video_frames)
+            subprocess.call([str(sys.executable), 'detect_landmarks_using_FaceAlignment.py', tmp_video_frames_npy_file])
+            os.remove(tmp_video_frames_npy_file)
+            my_video_landmarks = np.load('/tmp/my_video_landmarks.npz')
+            landmarks = my_video_landmarks['landmarks']
+            frames_with_no_landmarks = my_video_landmarks['frames_with_no_landmarks']
         else:
             raise ValueError("read_video_frame_landmarks:'using_dlib_or_face_alignment' can only be 'dlib' or 'face_alignment', got " + str(using_dlib_or_face_alignment))
 
-        landmarks = []
-        for f, frame in tqdm.tqdm(video_frames):
-            if using_dlib_or_face_alignment == 'dlib':
-                landmarks_in_frame = utils.get_landmarks_using_dlib_detector_and_predictor(frame, dlib_face_detector, dlib_shape_predictor)
-            elif using_dlib_or_face_alignment == 'face_alignment':
-                landmarks_in_frame = utils.get_landmarks_using_FaceAlignment(frame, face_alignment_3D_object)
-            if landmarks_in_frame is not None:
-                landmarks.append(landmarks_in_frame[1:])
-                frames_with_no_landmarks.append(0)
-            else:
-                frames_with_no_landmarks.append(1)
-                if f > 0:
-                    landmarks.append(landmarks[-1])
-                else:
-                    landmarks.append(np.zeros((68, 2)))
+
+    # TODO
+    # Make landmarks_list for landmarks.txt
+    # Save landmarks
+    # utils.write_landmarks_list_as_txt(os.path.join(landmarks_3D_in_frames_dir, video_file_name + "_landmarks_in_frames.txt"), landmarks_in_frames_list)
 
     # Convert to float array
     landmarks = np.array(landmarks).astype('float')
