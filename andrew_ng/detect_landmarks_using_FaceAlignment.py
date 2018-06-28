@@ -27,7 +27,7 @@ def detect_landmarks(video_frames_npy_file):
             if f > 0:
                 landmarks.append(landmarks[-1])
             else:
-                landmarks.append(np.zeros((68, 2)))
+                landmarks.append(np.zeros((68, 3)))
     # Save
     print("Saving my_video_landmarks.npz")
     np.savez('/tmp/my_video_landmarks', landmarks=landmarks, frames_with_no_landmarks=frames_with_no_landmarks)

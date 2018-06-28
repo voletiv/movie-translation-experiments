@@ -16,6 +16,7 @@ from scipy.io import loadmat
 from scipy.signal import medfilt
 from skimage.transform import resize
 
+import dynamic_video_maker
 import morph_video_config
 
 # Ignore all warnings
@@ -503,6 +504,66 @@ def transform_landmarks_by_mouth_centroid_and_memorize_scale_x(source_lip_landma
     return np.round(new_mouth_landmarks).astype('int'), scale_x
 
 
+def get_dynamic_video(target_video_frames, target_video_landmarks, source_lip_landmarks, lip_landmarks_fps, target_audio_file,
+                      save_output_video=False, output_file_name='out_with_jaw_body.mp4', ffmpeg_overwrite=False, verbose=False):
+
+    # Read target_video_lm
+    # print('reading file:'+target_lm_filename)
+    # full_lm_dst = sio.loadmat(target_lm_filename)['ypred']
+    full_lm_dst = target_video_landmarks
+    lm_dst = full_lm_dst[:, -20:]
+    lm_center_dst = lm_dst[:, [14, 16]]
+    lower_lm_dst = lm_center_dst[:, 1, 0]
+    lower_lm_dst = (lower_lm_dst-lower_lm_dst.min())/(lower_lm_dst.max()-lower_lm_dst.min())
+
+    # Read source lm
+    # print('reading file:'+input_pred_lm_filename)
+    # lm_src = sio.loadmat(input_pred_lm_filename)['y_pred']
+    lm_src = source_lip_landmarks
+    lm_center_src = lm_src[:, [14, 16]]
+    lower_lm_src = lm_center_src[:, 1, 0]
+    lower_lm_src = (lower_lm_src-lower_lm_src.min())/(lower_lm_src.max()-lower_lm_src.min())
+
+    # Define cluster centroids
+    k_centers = np.array([0.0, 0.2, 0.4, 0.6, 0.8, 1.0]).astype('float')
+
+    # Find nearest neighbour frame index in target video of each cluster centroid
+    neigh = NearestNeighbors(1)
+    neigh.fit(np.expand_dims(lower_lm_dst, 1))
+    dst_centroids = neigh.kneighbors(np.expand_dims(k_centers, 1), 1, return_distance=False)
+
+    # Map source landmarks to nearest frame of cluster centroid
+    neigh = NearestNeighbors(1)
+    neigh.fit(np.expand_dims(k_centers, 1))
+    src_assignment = neigh.kneighbors(np.expand_dims(lower_lm_src, 1), 1, return_distance=False)
+
+    dst_frame_ids_for_source = dst_centroids[src_assignment].squeeze()
+    temp = []
+    for i in range(0, 5):
+        temp.append(dst_frame_ids_for_source[0])
+    dst_frame_ids_for_source = np.array(temp + dst_frame_ids_for_source.tolist())
+
+    # print('reading file:' + target_video_filename)
+    # allImg_im1 = vid2img(target_video_filename)
+    allImg_im1 = target_video_frames
+    allImg_dst2src = []
+    dynamic_lm_dst = []
+    for i in dst_frame_ids_for_source:
+        allImg_dst2src.append(allImg_im1[i])
+        dynamic_lm_dst.append(full_lm_dst[i])
+
+    dynamic_lm_dst = np.array(dynamic_lm_dst)
+    # sio.savemat('Dynamic_LM.mat', {'lm': dynamic_lm_dst})
+    if save_output_video:
+        # allImg2vid(allImg_dst2src, '/tmp/output_with_jaw.mp4', frameRate=pred_lm_fps)
+        # shell_command = 'ffmpeg -i /tmp/output_with_jaw.mp4 -i ' + audio_filename + ' -c copy -map 0:v:0 -map 1:a:0 -shortest ' + output_filename
+        # os.system(shell_command)
+        save_new_video_frames_with_target_audio_as_mp4(allImg_dst2src, lip_landmarks_fps, target_audio_file, output_file_name=output_file_name, overwrite=ffmpeg_overwrite, verbose=verbose)
+
+    # Return dyn_sync frames and corresponding landmarks
+    return allImg_dst2src, dynamic_lm_dst
+
+
 def tmp_morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, target_audio_file, lip_landmarks_mat_file, lip_landmarks_fps, output_video_name,
                                            target_video_landmarks_file=None, save_making=True, save_generated_video=True, stabilize_landmarks=False,
                                            detect_landmarks_in_video=False, using_dlib_or_face_alignment='face_alignment',
@@ -556,7 +617,7 @@ def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, 
 
     num_of_frames = len(source_lip_landmarks)
     if verbose:
-        print("Number of frames:", num_of_frames)
+        print("Required number of frames:", num_of_frames)
 
     # Make lip closures when no speech
     if replace_closed_mouth:
@@ -607,11 +668,11 @@ def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, 
     if dyn_sync_lip_cluster_frames:
         target_all_landmarks_in_frames_orig = target_all_landmarks_in_frames
         target_video_frames, \
-            target_all_landmarks_in_frames = dynamic_video_maker.get_dynamic_video(target_video_frames, target_all_landmarks_in_frames,
-                                                                                   source_lip_landmarks, lip_landmarks_fps,
-                                                                                   target_audio_file,
-                                                                                   save_output_video=True,
-                                                                                   output_filename=os.path.join(os.path.dirname(output_video_name), 'out_with_jaw_body.mp4')
+            target_all_landmarks_in_frames = get_dynamic_video(target_video_frames, target_all_landmarks_in_frames,
+                                                               source_lip_landmarks, lip_landmarks_fps,
+                                                               target_audio_file,
+                                                               save_output_video=True,
+                                                               output_filename=os.path.join(os.path.dirname(output_video_name), 'out_with_jaw_body.mp4'))
         frames_with_no_landmarks = [0] * len(target_video_frames)
 
 

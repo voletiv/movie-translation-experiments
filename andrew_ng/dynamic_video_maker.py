@@ -29,7 +29,7 @@ def allImg2vid(allImg, output_vid='output_body.mp4', frameRate=30):
     print("Successfully converted images in allImg to " + output_vid)
 
 
-def get_dynamic_video(target_video_frames, target_landmarks, source_lip_landmarks, pred_lm_fps, audio_filename, save_output_video=False, output_filename='out_with_jaw_body.mp4'):
+def get_dynamic_video(target_video_frames, target_video_landmarks, source_lip_landmarks, pred_lm_fps, audio_filename, save_output_video=False, output_filename='out_with_jaw_body.mp4'):
 #     input_pred_lm_filename is the preddicted 20D landmarks .mat  file format with y_pred as the key for landmarks
 #     target_lm_filename is the target video 68D landmarks in .mat file format with ypred as the key for the landmarks
 #     default pred landmark fps = 25
@@ -82,7 +82,7 @@ def get_dynamic_video(target_video_frames, target_landmarks, source_lip_landmark
         dynamic_lm_dst.append(full_lm_dst[i])
     
     dynamic_lm_dst = np.array(dynamic_lm_dst)
-    sio.savemat('Dynamic_LM.mat', {'lm': dynamic_lm_dst})
+    # sio.savemat('Dynamic_LM.mat', {'lm': dynamic_lm_dst})
     if save_output_video:
         allImg2vid(allImg_dst2src, '/tmp/output_with_jaw.mp4', frameRate=pred_lm_fps)
         shell_command = 'ffmpeg -i /tmp/output_with_jaw.mp4 -i ' + audio_filename + ' -c copy -map 0:v:0 -map 1:a:0 -shortest ' + output_filename
