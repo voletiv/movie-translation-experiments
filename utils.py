@@ -507,12 +507,12 @@ def read_landmarks_within_video(lm_file='/home/voleti.vikram/MOVIE_TRANSLATION/l
     landmarks = []
     for ll in lm:
         frame_number = int(os.path.splitext(ll[0])[0].split('frame_')[-1])
-            if frame_number >= end_time*fps:
-                break
-            elif frame_number < start_time*fps:
-                continue
-            else:
-                landmarks.append(ll[1:])
+        if frame_number >= end_time*fps:
+            break
+        elif frame_number < start_time*fps:
+            continue
+        else:
+            landmarks.append(ll[1:])
     # scipy.io.savemat('/tmp/landmarks/ANDREW_NG_CV_01_C4W1L01_000003_to_000045_landmarks_in_frames.mat', mdict={'ypred': lip_landmarks_03_to_45})
     return np.array(landmarks, dtype='float')
 
