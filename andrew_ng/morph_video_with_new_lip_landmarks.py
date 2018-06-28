@@ -269,6 +269,11 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
                         landmarks.append(landmarks[-1])
                     else:
                         landmarks.append(np.zeros((68, 2)))
+            if np.all(landmarks[0] == np.zeros((68, 2))):
+                for l, lm in enumerate(landmarks):
+                    if not np.all(lm == np.zeros((68, 2))):
+                        break
+                landmarks[:(l+1)] = lm
 
         elif using_dlib_or_face_alignment == 'face_alignment':
             tmp_video_frames_npy_file = '/tmp/video_frames.npy'
@@ -559,7 +564,7 @@ def get_dynamic_video(target_video_frames, target_video_landmarks, source_lip_la
         # allImg2vid(allImg_dst2src, '/tmp/output_with_jaw.mp4', frameRate=pred_lm_fps)
         # shell_command = 'ffmpeg -i /tmp/output_with_jaw.mp4 -i ' + audio_filename + ' -c copy -map 0:v:0 -map 1:a:0 -shortest ' + output_filename
         # os.system(shell_command)
-        save_new_video_frames_with_target_audio_as_mp4(allImg_dst2src, lip_landmarks_fps, target_audio_file, output_file_name=output_file_name, overwrite=ffmpeg_overwrite, verbose=verbose)
+        utils.save_new_video_frames_with_target_audio_as_mp4(allImg_dst2src, lip_landmarks_fps, target_audio_file, output_file_name=output_file_name, overwrite=ffmpeg_overwrite, verbose=verbose)
 
     # Return dyn_sync frames and corresponding landmarks
     return allImg_dst2src, dynamic_lm_dst

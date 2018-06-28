@@ -28,6 +28,12 @@ def detect_landmarks(video_frames_npy_file):
                 landmarks.append(landmarks[-1])
             else:
                 landmarks.append(np.zeros((68, 3)))
+    if np.all(landmarks[0] == np.zeros((68, 2))):
+        for l, lm in enumerate(landmarks):
+            if not np.all(lm == np.zeros((68, 2))):
+                break
+        landmarks[:(l+1)] = lm
+
     # Save
     print("Saving my_video_landmarks.npz")
     np.savez('/tmp/my_video_landmarks', landmarks=landmarks, frames_with_no_landmarks=frames_with_no_landmarks)
