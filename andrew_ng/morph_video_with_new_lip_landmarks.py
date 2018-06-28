@@ -276,7 +276,6 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
             my_video_landmarks = np.load('/tmp/my_video_landmarks.npz')
             landmarks = my_video_landmarks['landmarks']
             frames_with_no_landmarks = my_video_landmarks['frames_with_no_landmarks']
-            # TODO
             # Make landmarks_list for landmarks.txt
             landmarks_in_frames_list = []
             for frame_number, (landmarks_in_frame, no_landmarks_in_frame) in enumerate(zip(landmarks, frames_with_no_landmarks)):
@@ -286,14 +285,14 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
             # Save landmarks
             utils.write_landmarks_list_as_txt("/tmp/landmarks_in_frames.txt", landmarks_in_frames_list)
             # Consider only 2D
-            landmarks = landmarks[:, :, :2]
+            # landmarks = landmarks[:, :, :2]
 
         else:
             raise ValueError("read_video_frame_landmarks:'using_dlib_or_face_alignment' can only be 'dlib' or 'face_alignment', got " + str(using_dlib_or_face_alignment))
 
-
-    # Convert to float array
+    # Convert to 2D float array
     landmarks = np.array(landmarks).astype('float')
+    landmarks = landmarks[:, :, 2]
 
     # Use medan filter to smoothen the output
     # landmarks = medfilt(landmarks, (13, 1, 1))
