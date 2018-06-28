@@ -275,14 +275,21 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
             my_video_landmarks = np.load('/tmp/my_video_landmarks.npz')
             landmarks = my_video_landmarks['landmarks']
             frames_with_no_landmarks = my_video_landmarks['frames_with_no_landmarks']
+            # TODO
+            # Make landmarks_list for landmarks.txt
+            landmarks_in_frames_list = []
+            for frame_number, (landmarks_in_frame, no_landmarks_in_frame) in enumerate(zip(landmarks, frames_with_no_landmarks)):
+                if not no_landmarks_in_frame:
+                    video_frame_name = video_file_name + "_frame_{0:05d}.png".format(frame_number)
+                    landmarks_in_frames_list.append([video_frame_name] + [list(l) for l in landmarks_in_frame])
+            # Save landmarks
+            utils.write_landmarks_list_as_txt("/tmp/landmarks_in_frames.txt", landmarks_in_frames_list)
+            # Consider only 2D
+            landmarks = landmarks[:, :, :2]
+
         else:
             raise ValueError("read_video_frame_landmarks:'using_dlib_or_face_alignment' can only be 'dlib' or 'face_alignment', got " + str(using_dlib_or_face_alignment))
 
-
-    # TODO
-    # Make landmarks_list for landmarks.txt
-    # Save landmarks
-    # utils.write_landmarks_list_as_txt(os.path.join(landmarks_3D_in_frames_dir, video_file_name + "_landmarks_in_frames.txt"), landmarks_in_frames_list)
 
     # Convert to float array
     landmarks = np.array(landmarks).astype('float')
@@ -500,7 +507,7 @@ def tmp_morph_video_with_new_lip_landmarks(generator_model_name, target_video_fi
                                            target_video_landmarks_file=None, save_making=True, save_generated_video=True, stabilize_landmarks=False,
                                            detect_landmarks_in_video=False, using_dlib_or_face_alignment='face_alignment',
                                            replace_closed_mouth=False, voice_activity_threshold=0.6, lm_prepend_time_in_ms=200,
-                                           constant_face=False, use_identity=False, ffmpeg_overwrite=False, verbose=False):
+                                           constant_face=False, use_identity=False, compress_making_video=False, ffmpeg_overwrite=False, verbose=False):
 
     # Read predicted lip landmarks    
     mat = loadmat(lip_landmarks_mat_file)
@@ -513,20 +520,22 @@ def tmp_morph_video_with_new_lip_landmarks(generator_model_name, target_video_fi
                                        save_generated_video=save_generated_video, stabilize_landmarks=stabilize_landmarks,
                                        detect_landmarks_in_video=detect_landmarks_in_video, using_dlib_or_face_alignment=using_dlib_or_face_alignment,
                                        replace_closed_mouth=replace_closed_mouth, voice_activity_threshold=voice_activity_threshold, lm_prepend_time_in_ms=lm_prepend_time_in_ms,
-                                       constant_face=constant_face, use_identity=use_identity, ffmpeg_overwrite=ffmpeg_overwrite, verbose=verbose)
+                                       constant_face=constant_face, use_identity=use_identity, compress_making_video=compress_making_video, ffmpeg_overwrite=ffmpeg_overwrite, verbose=verbose)
 
 
 def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, target_audio_file, new_lip_landmarks, lip_landmarks_fps=morph_video_config.generated_lip_landmarks_fps,
                                        output_video_name=None, target_video_landmarks_file=None, save_making=True, save_generated_video=True, stabilize_landmarks=False,
                                        detect_landmarks_in_video=False, using_dlib_or_face_alignment='face_alignment',
                                        replace_closed_mouth=False, voice_activity_threshold=0.6, lm_prepend_time_in_ms=200,
-                                       constant_face=False, use_identity=False, ffmpeg_overwrite=False, verbose=False):
+                                       constant_face=False, use_identity=False, compress_making_video=False, ffmpeg_overwrite=False, verbose=False):
 
     # If constant_face, update output_video_name
-    output_video_name = os.path.splitext(output_video_name)[0] + "_constant_face" + os.path.splitext(output_video_name)[1]
+    if constant_face:
+        output_video_name = os.path.splitext(output_video_name)[0] + "_constant_face" + os.path.splitext(output_video_name)[1]
 
     # If use_identity, update output_video_name
-    output_video_name = os.path.splitext(output_video_name)[0] + "_withIdentity" + os.path.splitext(output_video_name)[1]
+    if use_identity:
+        output_video_name = os.path.splitext(output_video_name)[0] + "_withIdentity" + os.path.splitext(output_video_name)[1]
 
     # Read target video
     target_video_reader = imageio.get_reader(target_video_file)
@@ -745,10 +754,13 @@ def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, 
 
     if save_making:
         print("Saving making video as", os.path.splitext(output_video_name)[0] + '_making.mp4')
-        resized_making_frames = []
-        for frame in making_frames:
-            resized_making_frames.append(np.round(resize(frame, (256, 256), mode='reflect', preserve_range=True)).astype('uint8'))
-        utils.save_new_video_frames_with_target_audio_as_mp4(np.round(resized_making_frames).astype('uint8'), target_video_fps, target_audio_file,
+        # Resize all frames in making_video to 256x256
+        if compress_making_video:
+            resized_making_frames = []
+            for frame in making_frames:
+                resized_making_frames.append(np.round(resize(frame, (256, 256), mode='reflect', preserve_range=True)).astype('uint8'))
+            making_frames = resized_making_frames
+        utils.save_new_video_frames_with_target_audio_as_mp4(np.round(making_frames).astype('uint8'), target_video_fps, target_audio_file,
                                                              output_file_name=os.path.splitext(output_video_name)[0] + '_making.mp4',
                                                              overwrite=ffmpeg_overwrite, verbose=verbose)
 
@@ -798,6 +810,7 @@ if __name__ == '__main__':
     parser.add_argument('--voice_activity_threshold', '-vadthresh', type=float, default=0.6, help="threshold [0 - 1] for voice activity detection; energy > thresh => voice")
     parser.add_argument('--lm_prepend_time_in_ms', '-lmptime', type=float, default=200, help="Time (in ms) to add landmarks at start due to delay in TIME-DELAYED LSTM")
     parser.add_argument('--constant_face', '-cf', action="store_true")
+    parser.add_argument('--compress_making_video', '-cm', action="store_true")
     parser.add_argument('--ffmpeg_overwrite', '-y', action="store_true")
     parser.add_argument('--use_identity', '-i', action="store_true")
     parser.add_argument('--verbose', '-v', action="store_true")
@@ -832,6 +845,7 @@ if __name__ == '__main__':
                                                voice_activity_threshold=args.voice_activity_threshold,
                                                lm_prepend_time_in_ms=args.lm_prepend_time_in_ms,
                                                constant_face=args.constant_face,
+                                               compress_making_video=args.compress_making_video,
                                                ffmpeg_overwrite=args.ffmpeg_overwrite,
                                                use_identity=args.use_identity,
                                                verbose=args.verbose)

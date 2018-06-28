@@ -20,7 +20,7 @@ def detect_landmarks(video_frames_npy_file):
     for f, frame in tqdm.tqdm(enumerate(video_frames), total=len(video_frames)):
         landmarks_in_frame = utils.get_landmarks_using_FaceAlignment(frame, face_alignment_3D_object)
         if landmarks_in_frame is not None:
-            landmarks.append(landmarks_in_frame[:, :2])
+            landmarks.append(landmarks_in_frame)
             frames_with_no_landmarks.append(0)
         else:
             frames_with_no_landmarks.append(1)
