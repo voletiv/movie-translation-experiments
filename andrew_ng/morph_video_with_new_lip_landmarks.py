@@ -5,6 +5,7 @@ import imageio
 import numpy as np
 import os
 import re
+import subprocess
 import sys
 import time
 import tqdm
@@ -269,7 +270,7 @@ def read_video_landmarks(video_frames=None, # Either read landmarks for each fra
         elif using_dlib_or_face_alignment == 'face_alignment':
             tmp_video_frames_npy_file = '/tmp/video_frames.npy'
             np.save(tmp_video_frames_npy_file, video_frames)
-            subprocess.call([str(sys.executable), 'detect_landmarks_using_FaceAlignment.py', tmp_video_frames_npy_file])
+            subprocess.call([str(sys.executable), os.path.join(os.path.dirname(__file__), 'detect_landmarks_using_FaceAlignment.py'), tmp_video_frames_npy_file])
             os.remove(tmp_video_frames_npy_file)
             my_video_landmarks = np.load('/tmp/my_video_landmarks.npz')
             landmarks = my_video_landmarks['landmarks']

@@ -1,8 +1,10 @@
 import numpy as np
+import os
+import sys
 import tqdm
 
-import sys
-sys.path.append('../')
+ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '../'))
+sys.path.append(ROOT_DIR)
 import utils
 
 
