@@ -28,9 +28,9 @@ def detect_landmarks(video_frames_npy_file):
                 landmarks.append(landmarks[-1])
             else:
                 landmarks.append(np.zeros((68, 3)))
-    if np.all(landmarks[0] == np.zeros((68, 2))):
+    if np.all(landmarks[0] == np.zeros((68, 3))):
         for l, lm in enumerate(landmarks):
-            if not np.all(lm == np.zeros((68, 2))):
+            if not np.all(lm == np.zeros((68, 3))):
                 break
         landmarks[:(l+1)] = lm
 
