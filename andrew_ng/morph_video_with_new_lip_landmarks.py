@@ -580,7 +580,7 @@ def tmp_morph_video_with_new_lip_landmarks(generator_model_name, target_video_fi
                                            detect_landmarks_in_video=False, using_dlib_or_face_alignment='face_alignment', scale_y_inner_lip=1.8, scale_y_outer_lip=1.2,
                                            replace_closed_mouth=False, voice_activity_threshold=0.6, lm_prepend_time_in_ms=200,
                                            dyn_sync_lip_cluster_frames=False, dyn_sync_target_video_file=None, dyn_sync_target_video_landmarks_file=None,
-                                           constant_face=False, constant_face_index=20, choose_median_face=False, use_identity=False, compress_making_video=False,
+                                           constant_face=False, constant_face_index=20, choose_resting_face=False, use_identity=False, compress_making_video=False,
                                            ffmpeg_overwrite=False, verbose=False):
 
     # Read predicted lip landmarks    
@@ -597,7 +597,7 @@ def tmp_morph_video_with_new_lip_landmarks(generator_model_name, target_video_fi
                                        replace_closed_mouth=replace_closed_mouth, voice_activity_threshold=voice_activity_threshold, lm_prepend_time_in_ms=lm_prepend_time_in_ms,
                                        dyn_sync_lip_cluster_frames=dyn_sync_lip_cluster_frames, dyn_sync_target_video_file=dyn_sync_target_video_file,
                                        dyn_sync_target_video_landmarks_file=dyn_sync_target_video_landmarks_file,
-                                       constant_face=constant_face, constant_face_index=constant_face_index, choose_median_face=choose_median_face, use_identity=use_identity,
+                                       constant_face=constant_face, constant_face_index=constant_face_index, choose_resting_face=choose_resting_face, use_identity=use_identity,
                                        compress_making_video=compress_making_video, ffmpeg_overwrite=ffmpeg_overwrite, verbose=verbose)
 
 
@@ -606,7 +606,7 @@ def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, 
                                        detect_landmarks_in_video=False, using_dlib_or_face_alignment='face_alignment', scale_y_inner_lip=1.8, scale_y_outer_lip=1.2,
                                        replace_closed_mouth=False, voice_activity_threshold=0.6, lm_prepend_time_in_ms=200,
                                        dyn_sync_lip_cluster_frames=False, dyn_sync_target_video_file=None, dyn_sync_target_video_landmarks_file=None,
-                                       constant_face=False, constant_face_index=20, choose_median_face=False, use_identity=False, compress_making_video=False,
+                                       constant_face=False, constant_face_index=20, choose_resting_face=False, use_identity=False, compress_making_video=False,
                                        ffmpeg_overwrite=False, verbose=False):
 
     # If constant_face, update output_video_name
@@ -711,11 +711,18 @@ def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, 
                                                                save_output_video=True, output_file_name=os.path.join(os.path.dirname(output_video_name), 'out_with_jaw_body.mp4'),
                                                                ffmpeg_overwrite=ffmpeg_overwrite, verbose=verbose)
 
-    # If constant_face, choose the face with medium mouth landmarks height, and its landmarks
+    # If constant_face
     if constant_face:
-        if choose_median_face:
-            target_all_mouth_landmarks_y_range = target_all_landmarks_in_frames[:, -11, 1] - target_all_landmarks_in_frames[:, -17, 1]
-            face_index = np.argsort(target_all_mouth_landmarks_y_range)[len(target_all_mouth_landmarks_y_range)//2]
+        # Choose the face with min inner lip y and max outer lip y
+        if choose_resting_face:
+            # Inner lip y range
+            target_all_mouth_landmarks_inner_y_range = abs(target_all_landmarks_in_frames[:, -2, 1] - target_all_landmarks_in_frames[:, -6, 1])
+            # Outer lip y range
+            target_all_mouth_landmarks_outer_y_range = abs(target_all_landmarks_in_frames[:, -11, 1] - target_all_landmarks_in_frames[:, -17, 1])
+            # Among the smallest 10% inner y range, choose the one with the largest outer y range
+            inner_lip_y_range_sorted_index = np.argsort(target_all_mouth_landmarks_inner_y_range)
+            outer_lip_y_range_sorted_index = np.argsort(target_all_mouth_landmarks_outer_y_range[inner_lip_y_range_sorted_index[:len(inner_lip_y_range_sorted_index)//10]])
+            face_index = frame_index_with_max_outer_lip_and_min_inner_lip = inner_lip_y_range_sorted_index[outer_lip_y_range_sorted_index[-1]]
         else:
             face_index = constant_face_index
         target_video_frames = np.tile(target_video_frames[face_index], (required_num_of_frames, 1, 1, 1))
@@ -867,7 +874,7 @@ def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, 
         new_frames = list(target_video_frames)
         for i, (new_frame, new_face, face_original_size, face_rect_in_frame, use_original_frame) in tqdm.tqdm(enumerate(zip(new_frames, new_faces, face_original_sizes, face_rect_in_frames, frames_with_no_landmarks)),
                                                                                                            total=required_num_of_frames):
-            if not use_original_frame:
+            if not use_original_frame or constant_face or dyn_sync_lip_cluster_frames:
                 new_face_resized = np.round(resize(new_face, face_original_size, mode='reflect', preserve_range=True)).astype('uint8')
                 new_frame[face_rect_in_frame[1]:face_rect_in_frame[3], face_rect_in_frame[0]:face_rect_in_frame[2]] = new_face_resized
             else:
@@ -944,7 +951,7 @@ if __name__ == '__main__':
     parser.add_argument('--dyn_sync_target_video_landmarks_file', '-dynsynctlm', type=str, default=None, help="(optional) landmarks file of dyn_sync_target_video_landmarks_file; if not mentioned, landmarks will be detected if -dlm, or landmakrs in target_video_landmarks_file will be used")
     parser.add_argument('--constant_face', '-cf', action="store_true")
     parser.add_argument('--constant_face_index', '-cfi', type=int, default=20, help="Index of the frame to be chosen as constant face")
-    parser.add_argument('--choose_median_face', '-cfmed', action="store_true", help="Choose frame with median range of lip y; will override constant_face_index")
+    parser.add_argument('--choose_resting_face', '-crf', action="store_true", help="Choose frame with min inner lip y range and max outer lip y range; will override constant_face_index")
     parser.add_argument('--compress_making_video', '-cm', action="store_true")
     parser.add_argument('--ffmpeg_overwrite', '-y', action="store_true")
     parser.add_argument('--use_identity', '-i', action="store_true")
@@ -986,7 +993,7 @@ if __name__ == '__main__':
                                                dyn_sync_target_video_landmarks_file=args.dyn_sync_target_video_landmarks_file,
                                                constant_face=args.constant_face,
                                                constant_face_index=args.constant_face_index,
-                                               choose_median_face=args.choose_median_face,
+                                               choose_resting_face=args.choose_resting_face,
                                                compress_making_video=args.compress_making_video,
                                                ffmpeg_overwrite=args.ffmpeg_overwrite,
                                                use_identity=args.use_identity,
