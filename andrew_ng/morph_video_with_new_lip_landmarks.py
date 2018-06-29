@@ -502,7 +502,7 @@ def transform_landmarks_by_mouth_centroid_and_memorize_scale_x(source_lip_landma
     # mouth_centred_source = mouth_centred_source * scale_x
     mouth_centred_source[:, 0] = mouth_centred_source[:, 0] * scale_x
     mouth_centred_source[:12, 1] = mouth_centred_source[:12, 1] * scale_x * 1.4
-    mouth_centred_source[12:, 1] = mouth_centred_source[12:, 1] * scale_x * 1.6
+    mouth_centred_source[12:, 1] = mouth_centred_source[12:, 1] * scale_x * 1.8
 
     # Centre it to the target centre
     new_mouth_landmarks = mouth_centred_source + mouth_centroid_target
@@ -543,11 +543,15 @@ def get_dynamic_video(target_video_frames, target_video_landmarks, source_lip_la
     neigh.fit(np.expand_dims(k_centers, 1))
     src_assignment = neigh.kneighbors(np.expand_dims(lower_lm_src, 1), 1, return_distance=False)
 
+    # Find dst_frame_ids for the mapped source landmarks
     dst_frame_ids_for_source = dst_centroids[src_assignment].squeeze()
-    temp = []
-    for i in range(0, 5):
-        temp.append(dst_frame_ids_for_source[0])
-    dst_frame_ids_for_source = np.array(temp + dst_frame_ids_for_source.tolist())
+
+    # Prepend frames to compensate for time-delay in LSTM
+    # NOT DONE! Already taken care of in morph_video...
+    # temp = []
+    # for i in range(0, 5):
+    #     temp.append(dst_frame_ids_for_source[0])
+    # dst_frame_ids_for_source = np.array(temp + dst_frame_ids_for_source.tolist())
 
     # print('reading file:' + target_video_filename)
     # allImg_im1 = vid2img(target_video_filename)
@@ -564,7 +568,8 @@ def get_dynamic_video(target_video_frames, target_video_landmarks, source_lip_la
         # allImg2vid(allImg_dst2src, '/tmp/output_with_jaw.mp4', frameRate=pred_lm_fps)
         # shell_command = 'ffmpeg -i /tmp/output_with_jaw.mp4 -i ' + audio_filename + ' -c copy -map 0:v:0 -map 1:a:0 -shortest ' + output_filename
         # os.system(shell_command)
-        utils.save_new_video_frames_with_target_audio_as_mp4(allImg_dst2src, lip_landmarks_fps, target_audio_file, output_file_name=output_file_name, overwrite=ffmpeg_overwrite, verbose=verbose)
+        utils.save_new_video_frames_with_target_audio_as_mp4(allImg_dst2src, lip_landmarks_fps, target_audio_file, output_file_name=output_file_name,
+                                                             overwrite=ffmpeg_overwrite, verbose=verbose)
 
     # Return dyn_sync frames and corresponding landmarks
     return allImg_dst2src, dynamic_lm_dst
@@ -651,7 +656,15 @@ def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, 
                 break
 
         target_video_frames = np.tile(target_video_frames[-1], (num_of_frames, 1, 1, 1))
-    
+
+    # Elif dynamically sync frames, read all frames in target video from which to take lip cluster frames
+    elif dyn_sync_lip_cluster_frames:
+        actual_required_number_of_frames = num_of_frames
+        num_of_frames = len(target_video_reader)
+        for f, frame in enumerate(target_video_reader):
+            target_video_frames.append(frame)
+
+    # Else, read only those number of frames as required
     else:
         for f, frame in enumerate(target_video_reader):
             target_video_frames.append(frame)
@@ -667,7 +680,7 @@ def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, 
 
     # If detect_landmarks_in_video, move landmarks detected to the right dir
     if detect_landmarks_in_video:    
-        shutil.move("/tmp/landmarks_in_frames.txt", os.path.join(os.path.realpath(os.path.dirname(output_video_name)), os.path.splitext(os.path.basename(output_video_name))[0] + "_landmarks_in_frames.txt"))
+        shutil.move("/tmp/landmarks_in_frames.txt", os.path.join(os.path.dirname(output_video_name), "target_video_landmarks_in_frames.txt"))
 
 
     # If dynamically sync lips
@@ -784,7 +797,8 @@ def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, 
 
     # Save landmarks in .mat file
     if dyn_sync_lip_cluster_frames:
-        savemat(os.path.join(os.path.dirname(output_video_name), 'landmarks.mat'), {'dst_lm': target_all_landmarks_in_frames_orig, 'src_lm': landmarks_in_faces})
+        print("Saving landmarks in landamarks.mat...")
+        savemat(os.path.join(os.path.dirname(output_video_name), 'landmarks.mat'), {'dst_orig_lm': target_all_landmarks_in_frames_orig, 'src_lm': landmarks_in_faces})
 
     # GENERATE FACES USING PIX2PIX
     if save_generated_video:
@@ -888,7 +902,7 @@ if __name__ == '__main__':
     parser.add_argument('--target_audio_file', '-a', type=str, default=None, help="target audio; eg. /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/Obama/ouput_new5.mp3")
     parser.add_argument('--detect_landmarks_in_video', '-dlm', action="store_true")
     parser.add_argument('--using_dlib_or_face_alignment', type=str, choices=["dlib", "face_alignment"], default="face_alignment", help="Choose dlib or face_alignment to detect landmarks, IF detect_landmarks_in_video is True")
-    parser.add_argument('--target_video_landmarks_file', '-t', type=str, default=None, help="landmarks file of target video; eg. /shared/fusor/home/voleti.vikram/ANDREW_NG_CLIPS/landmarks_in_frames_person/CV_01_C4W1L01_000003_to_000045/")
+    parser.add_argument('--target_video_landmarks_file', '-tlm', type=str, default=None, help="landmarks file of target video; eg. /shared/fusor/home/voleti.vikram/ANDREW_NG_CLIPS/landmarks_in_frames_person/CV_01_C4W1L01_000003_to_000045/")
     parser.add_argument('--lip_landmarks_mat_file', '-l', type=str, help="Predicted and target lip landmarks; eg. /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/generated_hindi_landmarks/output5/generated_lip_landmarks.mat")
     parser.add_argument('--lip_landmarks_fps', '-lfps', type=float, default=25, help="FPS of lip landmarks generated")
     parser.add_argument('--output_video_name', '-o', type=str, default=None, help="Name of output video; def: <input_video_name>_with_lips_of_<lip_landmarks_mat>.mp4")
@@ -899,7 +913,7 @@ if __name__ == '__main__':
     parser.add_argument('--replace_closed_mouth', '-r', action="store_true")
     parser.add_argument('--voice_activity_threshold', '-vadthresh', type=float, default=0.6, help="threshold [0 - 1] for voice activity detection; energy > thresh => voice")
     parser.add_argument('--lm_prepend_time_in_ms', '-lmptime', type=float, default=200, help="Time (in ms) to add landmarks at start due to delay in TIME-DELAYED LSTM")
-    parser.add_argument('--dyn_sync_lip_cluster_frames', '-dsync', action="store_true")
+    parser.add_argument('--dyn_sync_lip_cluster_frames', '-dynsync', action="store_true")
     parser.add_argument('--constant_face', '-cf', action="store_true")
     parser.add_argument('--compress_making_video', '-cm', action="store_true")
     parser.add_argument('--ffmpeg_overwrite', '-y', action="store_true")
