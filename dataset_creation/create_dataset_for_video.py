@@ -18,12 +18,22 @@ def create_dataset_for_video(video_file, using_dlib_or_face_alignment,
                              output_dir=os.path.realpath('VIDEO_DATASET'),
                              verbose=False):
 
+
     # Load landmarks detector
     if using_dlib_or_face_alignment == 'dlib':
+        if verbose:
+            print("Loading dlib detector and shape predictor...")
         dlib_detector, dlib_predictor = utils.load_dlib_detector_and_predictor()
     elif using_dlib_or_face_alignment == 'face_alignment':
+        if verbose:
+            print("Loading face_alignment_3D_object...")
         face_alignment_3D_object = utils.load_face_alignment_object(d='3D', enable_cuda=enable_cuda)
+        if verbose:
+            print("Loading face_alignment_2D_object...")
         face_alignment_2D_object = utils.load_face_alignment_object(d='2D', enable_cuda=enable_cuda)
+
+    if verbose:
+        print("EXTRACTING FACE FRAMES NAD LANDMARKS FROM VIDEO")
 
     # Make dataset
     extract_face_frames_and_landmarks_from_video(video_file=video_file, using_dlib_or_face_alignment=using_dlib_or_face_alignment,
