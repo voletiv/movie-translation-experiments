@@ -2,7 +2,7 @@ import argparse
 import os
 
 import sys
-sys.path.append(os.parth.realpath(os.path.join(os.path.dirname(__file__), '../')
+sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), '../')))
 import utils
 
 from movie_translation_data_creation_functions import extract_face_frames_and_landmarks_from_video
@@ -19,9 +19,9 @@ def create_dataset_for_video(video_file, using_dlib_or_face_alignment,
                              verbose=False):
 
     # Load landmarks detector
-    if config.USING_DLIB_OR_FACE_ALIGNMENT == 'dlib':
+    if using_dlib_or_face_alignment == 'dlib':
         dlib_detector, dlib_predictor = utils.load_dlib_detector_and_predictor()
-    elif config.USING_DLIB_OR_FACE_ALIGNMENT == 'face_alignment':
+    elif using_dlib_or_face_alignment == 'face_alignment':
         face_alignment_3D_object = utils.load_face_alignment_object(d='3D', enable_cuda=enable_cuda)
         face_alignment_2D_object = utils.load_face_alignment_object(d='2D', enable_cuda=enable_cuda)
 
@@ -43,6 +43,9 @@ if __name__ == '__main__':
     parser.add_argument('--disable_cuda', '-dcuda', action="store_true")
     parser.add_argument('--output_dir', '-o', type=str, default=os.path.realpath('.'), help="Name of the directory to make in which to put all faces_combined and landmarks dirs")
     parser.add_argument('--verbose', '-v', action="store_true")
+    args = parser.parse_args()
+
+    print(args)
 
     create_dataset_for_video(video_file=args.video_file,
                              using_dlib_or_face_alignment=args.using_dlib_or_face_alignment, enable_cuda=(not args.disable_cuda),
