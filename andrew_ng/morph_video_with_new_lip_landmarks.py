@@ -502,7 +502,7 @@ def transform_landmarks_by_mouth_centroid_and_memorize_scale_x(source_lip_landma
     # mouth_centred_source = mouth_centred_source * scale_x
     mouth_centred_source[:, 0] = mouth_centred_source[:, 0] * scale_x
     mouth_centred_source[:12, 1] = mouth_centred_source[:12, 1] * scale_x * 1.4
-    mouth_centred_source[12:, 1] = mouth_centred_source[12:, 1] * scale_x * 1.8
+    mouth_centred_source[12:, 1] = mouth_centred_source[12:, 1] * scale_x * 2.0
 
     # Centre it to the target centre
     new_mouth_landmarks = mouth_centred_source + mouth_centroid_target
@@ -666,7 +666,7 @@ def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, 
 
     # Elif dynamically sync frames, read all frames in target video from which to take lip cluster frames
     elif dyn_sync_lip_cluster_frames:
-        actual_required_number_of_frames = required_num_of_frames
+        actual_required_num_of_frames = required_num_of_frames
         required_num_of_frames = len(target_video_reader)
         for f, frame in enumerate(target_video_reader):
             target_video_frames.append(frame)
@@ -700,6 +700,8 @@ def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, 
     # If dynamically sync frames
     if dyn_sync_lip_cluster_frames:
         # now that we've read the dyn_sync_video_frames and landmarks, revert
+        required_num_of_frames = actual_required_num_of_frames
+
         if dyn_sync_target_video_file:
             target_video_file = actual_target_video_file
 
