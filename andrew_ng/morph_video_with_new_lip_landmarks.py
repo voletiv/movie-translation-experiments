@@ -579,7 +579,8 @@ def tmp_morph_video_with_new_lip_landmarks(generator_model_name, target_video_fi
                                            target_video_landmarks_file=None, save_making=True, save_generated_video=True, stabilize_landmarks=False,
                                            detect_landmarks_in_video=False, using_dlib_or_face_alignment='face_alignment',
                                            replace_closed_mouth=False, voice_activity_threshold=0.6, lm_prepend_time_in_ms=200,
-                                           dyn_sync_lip_cluster_frames=False, constant_face=False, use_identity=False, compress_making_video=False, ffmpeg_overwrite=False, verbose=False):
+                                           dyn_sync_lip_cluster_frames=False, dyn_sync_target_video_file=None, dyn_sync_target_video_landmarks_file=None,
+                                           constant_face=False, use_identity=False, compress_making_video=False, ffmpeg_overwrite=False, verbose=False):
 
     # Read predicted lip landmarks    
     mat = loadmat(lip_landmarks_mat_file)
@@ -592,7 +593,9 @@ def tmp_morph_video_with_new_lip_landmarks(generator_model_name, target_video_fi
                                        save_generated_video=save_generated_video, stabilize_landmarks=stabilize_landmarks,
                                        detect_landmarks_in_video=detect_landmarks_in_video, using_dlib_or_face_alignment=using_dlib_or_face_alignment,
                                        replace_closed_mouth=replace_closed_mouth, voice_activity_threshold=voice_activity_threshold, lm_prepend_time_in_ms=lm_prepend_time_in_ms,
-                                       dyn_sync_lip_cluster_frames=dyn_sync_lip_cluster_frames, constant_face=constant_face, use_identity=use_identity,
+                                       dyn_sync_lip_cluster_frames=dyn_sync_lip_cluster_frames, dyn_sync_target_video_file=dyn_sync_target_video_file,
+                                       dyn_sync_target_video_landmarks_file=dyn_sync_target_video_landmarks_file,
+                                       constant_face=constant_face, use_identity=use_identity,
                                        compress_making_video=compress_making_video, ffmpeg_overwrite=ffmpeg_overwrite, verbose=verbose)
 
 
@@ -600,7 +603,8 @@ def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, 
                                        output_video_name=None, target_video_landmarks_file=None, save_making=True, save_generated_video=True, stabilize_landmarks=False,
                                        detect_landmarks_in_video=False, using_dlib_or_face_alignment='face_alignment',
                                        replace_closed_mouth=False, voice_activity_threshold=0.6, lm_prepend_time_in_ms=200,
-                                       dyn_sync_lip_cluster_frames=False, constant_face=False, use_identity=False, compress_making_video=False, ffmpeg_overwrite=False, verbose=False):
+                                       dyn_sync_lip_cluster_frames=False, dyn_sync_target_video_file=None, dyn_sync_target_video_landmarks_file=None,
+                                       constant_face=False, use_identity=False, compress_making_video=False, ffmpeg_overwrite=False, verbose=False):
 
     # If constant_face, update output_video_name
     if constant_face:
@@ -613,6 +617,9 @@ def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, 
     # Read target video
     target_video_reader = imageio.get_reader(target_video_file)
     target_video_fps = target_video_reader.get_meta_data()['fps']
+    if dyn_sync_lip_cluster_frames and dyn_sync_target_video_file:
+        # If dyn_sync, read the dyn_sync_target_video_file
+        target_video_reader = imageio.get_reader(dyn_sync_target_video_file)
     if verbose:
         print("target_video_length:", len(target_video_reader), "; target_video_fps:", target_video_fps)
 
@@ -626,9 +633,9 @@ def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, 
     number_of_frames_to_prepend = (target_video_fps * lm_prepend_time_in_ms / 1000)
     source_lip_landmarks = np.concatenate((np.repeat(np.expand_dims(source_lip_landmarks[0], axis=0), number_of_frames_to_prepend, axis=0), source_lip_landmarks), axis=0)
 
-    num_of_frames = len(source_lip_landmarks)
+    required_num_of_frames = len(source_lip_landmarks)
     if verbose:
-        print("Required number of frames:", num_of_frames)
+        print("Required number of frames:", required_num_of_frames)
 
     # Make lip closures when no speech
     if replace_closed_mouth:
@@ -655,36 +662,50 @@ def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, 
             if f == 20:
                 break
 
-        target_video_frames = np.tile(target_video_frames[-1], (num_of_frames, 1, 1, 1))
+        target_video_frames = np.tile(target_video_frames[-1], (required_num_of_frames, 1, 1, 1))
 
     # Elif dynamically sync frames, read all frames in target video from which to take lip cluster frames
     elif dyn_sync_lip_cluster_frames:
-        actual_required_number_of_frames = num_of_frames
-        num_of_frames = len(target_video_reader)
+        actual_required_number_of_frames = required_num_of_frames
+        required_num_of_frames = len(target_video_reader)
         for f, frame in enumerate(target_video_reader):
             target_video_frames.append(frame)
+
+        if dyn_sync_target_video_file:
+            actual_target_video_file = target_video_file
+            target_video_file = dyn_sync_target_video_file
+
+        if dyn_sync_target_video_landmarks_file:
+            actual_target_video_landmarks_file = target_video_landmarks_file
+            target_video_landmarks_file = dyn_sync_target_video_landmarks_file
 
     # Else, read only those number of frames as required
     else:
         for f, frame in enumerate(target_video_reader):
             target_video_frames.append(frame)
-            if f+1 == num_of_frames:
+            if f+1 == required_num_of_frames:
                 break
 
     # Read target_video_file's frame landmarks
     target_all_landmarks_in_frames, frames_with_no_landmarks = read_video_landmarks(video_frames=target_video_frames, video_file_name=target_video_file,
                                                                                     read_from_landmarks_file=(not detect_landmarks_in_video), using_dlib_or_face_alignment=using_dlib_or_face_alignment,
                                                                                     video_landmarks_file=target_video_landmarks_file,
-                                                                                    landmarks_type='frames', required_number=num_of_frames, video_fps=target_video_fps,
+                                                                                    landmarks_type='frames', required_number=required_num_of_frames, video_fps=target_video_fps,
                                                                                     stabilize_landmarks=stabilize_landmarks, verbose=verbose)
 
     # If detect_landmarks_in_video, move landmarks detected to the right dir
     if detect_landmarks_in_video:    
         shutil.move("/tmp/landmarks_in_frames.txt", os.path.join(os.path.dirname(output_video_name), "target_video_landmarks_in_frames.txt"))
 
-
-    # If dynamically sync lips
+    # If dynamically sync frames
     if dyn_sync_lip_cluster_frames:
+        # now that we've read the dyn_sync_video_frames and landmarks, revert
+        if dyn_sync_target_video_file:
+            target_video_file = actual_target_video_file
+
+        if dyn_sync_target_video_landmarks_file:
+            target_video_landmarks_file = actual_target_video_landmarks_file
+
         print("Dynamically syncing video frames acc to lip clusters...")
         target_all_landmarks_in_frames_orig = target_all_landmarks_in_frames
         target_video_frames, \
@@ -761,7 +782,7 @@ def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, 
                                                                                                                           target_all_landmarks_in_frames,
                                                                                                                           source_lip_landmarks,
                                                                                                                           frames_with_no_landmarks),
-                                                                                                                      total=num_of_frames):
+                                                                                                                      total=required_num_of_frames):
 
         # Get the face - squared, expanded, resized
         face_square_expanded_resized, \
@@ -842,7 +863,7 @@ def morph_video_with_new_lip_landmarks(generator_model_name, target_video_file, 
 
         new_frames = list(target_video_frames)
         for i, (new_frame, new_face, face_original_size, face_rect_in_frame, use_original_frame) in tqdm.tqdm(enumerate(zip(new_frames, new_faces, face_original_sizes, face_rect_in_frames, frames_with_no_landmarks)),
-                                                                                                           total=num_of_frames):
+                                                                                                           total=required_num_of_frames):
             if not use_original_frame:
                 new_face_resized = np.round(resize(new_face, face_original_size, mode='reflect', preserve_range=True)).astype('uint8')
                 new_frame[face_rect_in_frame[1]:face_rect_in_frame[3], face_rect_in_frame[0]:face_rect_in_frame[2]] = new_face_resized
@@ -913,7 +934,9 @@ if __name__ == '__main__':
     parser.add_argument('--replace_closed_mouth', '-r', action="store_true")
     parser.add_argument('--voice_activity_threshold', '-vadthresh', type=float, default=0.6, help="threshold [0 - 1] for voice activity detection; energy > thresh => voice")
     parser.add_argument('--lm_prepend_time_in_ms', '-lmptime', type=float, default=200, help="Time (in ms) to add landmarks at start due to delay in TIME-DELAYED LSTM")
-    parser.add_argument('--dyn_sync_lip_cluster_frames', '-dynsync', action="store_true")
+    parser.add_argument('--dyn_sync_lip_cluster_frames', '-dysy', action="store_true")
+    parser.add_argument('--dyn_sync_target_video_file', '-dysytv', type=str, default=None, help="(optional) target video to be used for dynamic syncing; if not mentioned, target_video_file will be used")
+    parser.add_argument('--dyn_sync_target_video_landmarks_file', '-dysytlm', type=str, default=None, help="(optional) landmarks file of dyn_sync_target_video_landmarks_file; if not mentioned, landmarks will be detected if -dlm, or landmakrs in target_video_landmarks_file will be used")
     parser.add_argument('--constant_face', '-cf', action="store_true")
     parser.add_argument('--compress_making_video', '-cm', action="store_true")
     parser.add_argument('--ffmpeg_overwrite', '-y', action="store_true")
@@ -950,6 +973,8 @@ if __name__ == '__main__':
                                                voice_activity_threshold=args.voice_activity_threshold,
                                                lm_prepend_time_in_ms=args.lm_prepend_time_in_ms,
                                                dyn_sync_lip_cluster_frames=args.dyn_sync_lip_cluster_frames,
+                                               dyn_sync_target_video_file=args.dyn_sync_target_video_file,
+                                               dyn_sync_target_video_landmarks_file=args.dyn_sync_target_video_landmarks_file,
                                                constant_face=args.constant_face,
                                                compress_making_video=args.compress_making_video,
                                                ffmpeg_overwrite=args.ffmpeg_overwrite,
