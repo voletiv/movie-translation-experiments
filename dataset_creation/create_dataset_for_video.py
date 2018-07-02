@@ -51,6 +51,7 @@ if __name__ == '__main__':
     parser.add_argument('video_file', type=str, help="video (.mp4); eg. /shared/fusor/home/voleti.vikram/ANDREW_NG/videos/CV_01_C4W1L01_000003_to_000045/CV_01_C4W1L01_000003_to_000045.mp4")
     parser.add_argument('--using_dlib_or_face_alignment', type=str, choices=["dlib", "face_alignment"], default="face_alignment", help="Choose dlib or face_alignment to detect landmarks, IF detect_landmarks_in_video is True")
     parser.add_argument('--disable_cuda', '-dcuda', action="store_true")
+    parser.add_argument('--dont_save_with_blackened_mouths_and_polygons', '-nobmp', action="store_true")
     parser.add_argument('--output_dir', '-o', type=str, default=os.path.realpath('.'), help="Name of the directory to make in which to put all faces_combined and landmarks dirs")
     parser.add_argument('--verbose', '-v', action="store_true")
     args = parser.parse_args()
@@ -59,6 +60,7 @@ if __name__ == '__main__':
 
     create_dataset_for_video(video_file=args.video_file,
                              using_dlib_or_face_alignment=args.using_dlib_or_face_alignment, enable_cuda=(not args.disable_cuda),
+                             save_with_blackened_mouths_and_polygons=(not args.dont_save_with_blackened_mouths_and_polygons),
                              output_dir=args.output_dir,
                              verbose=args.verbose)
 
